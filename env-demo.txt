@@ -1,0 +1,14 @@
+# Demo Mode Configuration
+DEMO_MODE=true
+
+# Azure AD Configuration (commented out for demo mode)
+# AZURE_CLIENT_ID=your_client_id_here
+# AZURE_CLIENT_SECRET=your_client_secret_here
+# Note: tenantId is automatically set to "common" for multi-tenant support (any Microsoft account)
+
+# Next.js Configuration
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=demo_secret_key_for_development_only
+
+# Database Configuration
+DATABASE_URL="file:./dev.db"
