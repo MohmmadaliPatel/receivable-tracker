@@ -3,9 +3,10 @@ import { Client } from '@microsoft/microsoft-graph-client';
 export function getGraphClient(accessToken: string): Client {
   return Client.init({
     authProvider: (done) => {
-      // Ensure the token is properly formatted as Bearer token
-      const bearerToken = accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`;
-      done(null, bearerToken);
+      // The Graph SDK automatically adds "Bearer" prefix, so we just pass the token
+      // Remove "Bearer" if it's already present to avoid double prefixing
+      const token = accessToken.startsWith('Bearer ') ? accessToken.substring(7) : accessToken;
+      done(null, token);
     },
   });
 }

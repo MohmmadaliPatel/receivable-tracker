@@ -10,27 +10,6 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  ext_expires_in    Int?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-}
-
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -43,60 +22,160 @@ model Session {
 
 model User {
   id            String    @id @default(cuid())
+  username      String    @unique
+  password      String    // Hashed password
   name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
+  email         String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   sessions      Session[]
-  emails        Email[]
-  emailSyncs    EmailSync[]
+  emailConfigs  EmailConfig[]
+  recipients    Recipient[]
 
   @@map("users")
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model EmailConfig {
+  id              String   @id @default(cuid())
+  name            String   // Configuration name (e.g., "Primary", "Backup")
+  type            String   @default("graph") // "graph" or "smtp" (only graph implemented)
+  msTenantId      String   // MS_TENANT_ID
+  msClientId      String   // MS_CLIENT_ID
+  msClientSecret  String   // MS_CLIENT_SECRET
+  fromEmail       String   // FROM_EMAIL
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailTrackings  EmailTracking[]
+  isActive        Boolean  @default(true)
+  cronEnabled     Boolean  @default(false) // Enable automatic fetching
+  cronIntervalMinutes Int  @default(10) // Interval in minutes (e.g., 10 = every 10 minutes)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@unique([identifier, token])
-  @@map("verificationtokens")
+  @@map("email_configs")
 }
 
 model Email {
   id          String   @id @default(cuid())
-  messageId   String   @unique
+  to          String   // Recipient email
   subject     String?
-  sender      String
-  senderName  String?
-  recipients  String   // JSON string of recipients
   body        String?
-  bodyPreview String?
-  receivedAt  DateTime
-  isRead      Boolean  @default(false)
-  hasAttachments Boolean @default(false)
-  attachments String?  // JSON string of attachment info
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  htmlBody    String?
+  sentAt      DateTime @default(now())
+  status      String   @default("sent") // sent, failed, pending
+  errorMessage String?
+  emailConfigId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("emails")
 }
 
-model EmailSync {
-  id                String   @id @default(cuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lastSyncToken     String?
-  lastSyncDate      DateTime?
-  totalEmailsSynced Int      @default(0)
-  status            String   @default("idle") // idle, syncing, error, paused
-  errorMessage      String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model Recipient {
+  id            String   @id @default(cuid())
+  email         String   @unique // Email address to track
+  name          String?  // Optional name
+  isActive      Boolean  @default(true)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailTrackings EmailTracking[]
+  forwardingRule ForwardingRule?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@unique([userId])
-  @@map("email_syncs")
+  @@map("recipients")
+}
+
+model EmailTracking {
+  id              String   @id @default(cuid())
+  recipientId     String
+  recipient       Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  
+  // Original email details
+  originalMessageId  String   @unique // Graph API message ID
+  originalSubject    String?
+  originalBody       String?
+  originalHtmlBody   String?
+  originalFromEmail  String
+  originalFromName   String?
+  originalReceivedAt DateTime
+  
+  // Forwarding details
+  isForwarded     Boolean  @default(false)
+  forwardedTo     String?  // Comma-separated list of emails
+  forwardedAt     DateTime?
+  forwardMessageId String? // Graph API message ID of forwarded email
+  autoForwarded   Boolean  @default(false) // Whether it was auto-forwarded via rule
+  
+  // Reply tracking
+  hasReplies      Boolean  @default(false)
+  lastReplyAt     DateTime?
+  replyCount      Int      @default(0)
+  
+  // Attachments
+  hasAttachments  Boolean  @default(false)
+  attachmentIds   String?  // JSON array of attachment IDs
+  
+  // Status
+  status          String   @default("received") // received, forwarded, replied, error
+  errorMessage    String?
+  
+  userId          String
+  emailConfigId   String?
+  emailConfig     EmailConfig? @relation(fields: [emailConfigId], references: [id], onDelete: SetNull)
+  replies         EmailReply[] // Replies to this forwarded email
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("email_trackings")
+}
+
+model EmailReply {
+  id              String   @id @default(cuid())
+  emailTrackingId String
+  emailTracking   EmailTracking @relation(fields: [emailTrackingId], references: [id], onDelete: Cascade)
+  
+  // Reply message details
+  messageId       String   @unique // Graph API message ID
+  subject         String?
+  body            String?
+  htmlBody        String?
+  bodyPreview     String?
+  fromEmail       String
+  fromName        String?
+  receivedAt      DateTime
+  
+  // Attachments
+  hasAttachments  Boolean  @default(false)
+  attachmentIds   String?  // JSON array of attachment info: [{id, name, contentType, size}]
+  
+  userId          String
+  emailConfigId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("email_replies")
+}
+
+model ForwardingRule {
+  id              String   @id @default(cuid())
+  recipientId     String
+  recipient       Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  
+  // Forward to emails (comma-separated or JSON array)
+  forwardToEmails String   // Comma-separated list of email addresses
+  
+  // Subject filter (optional - partial match)
+  subjectFilter   String?  // If provided, only forward emails whose subject contains this text (case-insensitive)
+  
+  // Configuration
+  isActive        Boolean  @default(true)
+  autoForward     Boolean  @default(true) // Automatically forward when email received
+  
+  userId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([recipientId]) // One rule per recipient
+  @@map("forwarding_rules")
 }

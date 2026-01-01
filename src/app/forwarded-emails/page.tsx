@@ -1,6 +1,6 @@
 import AuthGuard from "@/components/AuthGuard";
 import Sidebar from "@/components/Sidebar";
-import DashboardOverview from "@/components/DashboardOverview";
+import ForwardedEmailsList from "@/components/ForwardedEmailsList";
 import { getSession } from '@/lib/simple-auth';
 import { cookies } from 'next/headers';
 
@@ -11,7 +11,7 @@ async function getUser() {
   return await getSession(sessionToken);
 }
 
-export default async function Home() {
+export default async function ForwardedEmailsPage() {
   const user = await getUser();
 
   return (
@@ -20,11 +20,14 @@ export default async function Home() {
         <Sidebar user={user || undefined} />
         <div className="flex-1">
           <div className="p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
-            <DashboardOverview />
+            <h1 className="text-3xl font-bold text-gray-900 mb-6">Forwarded Emails</h1>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <ForwardedEmailsList />
+            </div>
           </div>
         </div>
       </div>
     </AuthGuard>
   );
 }
+

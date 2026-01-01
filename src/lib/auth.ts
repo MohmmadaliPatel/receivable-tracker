@@ -121,7 +121,7 @@ export const authOptions: NextAuthOptions = {
         console.log("Token still valid, returning existing token");
         return token
       }
-      
+
       // Access token has expired, try to update it
       console.log("Token expired, attempting refresh");
       return await refreshAccessToken(token)
