@@ -2,6 +2,7 @@ import { prisma } from './prisma';
 import { EmailConfigService } from './email-config-service';
 import { SenderService } from './sender-service';
 import { EmailTrackingService } from './email-tracking-service';
+import { GraphMailService } from './graph-mail-service';
 
 interface CronJob {
   intervalId: NodeJS.Timeout | null;
@@ -149,6 +150,11 @@ class CronService {
         }
       }
 
+      // Check and send reminder emails if enabled
+      if (config.reminderEnabled) {
+        await this.checkAndSendReminders(config, config.userId);
+      }
+
       console.log(`✅ [Cron] Completed job for config ${configId}`);
     } catch (error) {
       console.error(`❌ [Cron] Error running job for config ${configId}:`, error);
@@ -186,6 +192,113 @@ class CronService {
       }
     } catch (error) {
       console.error('❌ [Cron] Error checking replies:', error);
+    }
+  }
+
+  // Check and send reminder emails for forwarded emails that meet the criteria
+   async checkAndSendReminders(config: any, userId: string) {
+    try {
+      console.log(`🔔 [Cron] Checking for reminder emails for config ${config.id}`);
+
+      // Get all forwarded emails for this config that haven't received replies and haven't had reminders sent
+      const forwardedEmails = await prisma.emailTracking.findMany({
+        where: {
+          userId,
+          emailConfigId: config.id,
+          isForwarded: true,
+          hasReplies: false,
+          reminderSent: false,
+          forwardedAt: {
+            not: null,
+          },
+          forwardedTo: {
+            not: null,
+          },
+        },
+        include: {
+          emailConfig: true,
+        },
+      });
+
+      if (forwardedEmails.length === 0) {
+        console.log(`ℹ️  [Cron] No emails need reminders`);
+        return;
+      }
+
+      console.log(`📋 [Cron] Found ${forwardedEmails.length} forwarded emails to check for reminders`);
+
+      const reminderDuration = config.reminderDurationHours || 24;
+      const reminderUnit = config.reminderDurationUnit || 'hours';
+      const reminderDurationMinutes = reminderUnit === 'hours' 
+        ? reminderDuration * 60 
+        : reminderDuration;
+
+      let remindersSent = 0;
+
+      for (const emailTracking of forwardedEmails) {
+        if (!emailTracking.forwardedAt || !emailTracking.forwardedTo) {
+          continue;
+        }
+
+        // Check if the duration has passed
+        const forwardedDate = new Date(emailTracking.forwardedAt);
+        const now = new Date();
+        const minutesSinceForwarded = (now.getTime() - forwardedDate.getTime()) / (1000 * 60);
+
+        if (minutesSinceForwarded >= reminderDurationMinutes) {
+          try {
+            console.log(`📧 [Cron] Sending reminder for email ${emailTracking.id} (${minutesSinceForwarded.toFixed(1)} minutes since forwarded)`);
+
+            // Send reminder email to all forwarded-to addresses
+            const forwardToEmails = emailTracking.forwardedTo.split(',').map(e => e.trim()).filter(e => e);
+            const reminderSubject = 'Reminder';
+            const reminderBody = `This is a reminder regarding the forwarded email:\n\nSubject: ${emailTracking.originalSubject || '(No Subject)'}\nFrom: ${emailTracking.originalFromName || emailTracking.originalFromEmail}\nOriginal Date: ${new Date(emailTracking.originalReceivedAt).toLocaleString()}\n\nPlease respond if you have any questions or concerns.`;
+
+            for (const email of forwardToEmails) {
+              await GraphMailService.sendMail(config, {
+                to: email,
+                subject: reminderSubject,
+                body: reminderBody,
+              });
+            }
+
+            // Update tracking to mark reminder sent
+            try {
+              await prisma.$executeRaw`
+                UPDATE email_trackings 
+                SET status = 'reminder_sent', 
+                    reminderSent = 1, 
+                    reminderSentAt = ${new Date()},
+                    updatedAt = ${new Date()}
+                WHERE id = ${emailTracking.id}
+              `;
+            } catch (error: any) {
+              // Fallback: try with Prisma update (will work after Prisma regenerate)
+              await prisma.emailTracking.update({
+                where: { id: emailTracking.id },
+                data: {
+                  status: 'reminder_sent',
+                  reminderSent: true,
+                  reminderSentAt: new Date(),
+                } as any,
+              });
+            }
+
+            remindersSent++;
+            console.log(`✅ [Cron] Reminder sent for email ${emailTracking.id}`);
+          } catch (error) {
+            console.error(`❌ [Cron] Error sending reminder for email ${emailTracking.id}:`, error);
+          }
+        }
+      }
+
+      if (remindersSent > 0) {
+        console.log(`✅ [Cron] Sent ${remindersSent} reminder email(s)`);
+      } else {
+        console.log(`ℹ️  [Cron] No reminders were due at this time`);
+      }
+    } catch (error) {
+      console.error('❌ [Cron] Error checking and sending reminders:', error);
     }
   }
 }

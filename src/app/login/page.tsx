@@ -95,12 +95,6 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Default credentials:</p>
-            <p className="font-mono">Username: admin@taxteck.com</p>
-            <p className="font-mono">Password: 1234567890</p>
-          </div>
         </div>
       </div>
     </div>

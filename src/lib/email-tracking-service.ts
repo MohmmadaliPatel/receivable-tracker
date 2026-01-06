@@ -228,63 +228,138 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
           const tracked = await this.trackEmail(senderId, config.id, userId, email);
           
           // Auto-forward if enabled and not already forwarded
-          if (autoForward && tracked && !tracked.isForwarded) {
+          // Use atomic check-and-update to prevent duplicate forwarding
+          if (autoForward && tracked) {
             try {
+              // Atomic check: Only proceed if email is NOT already forwarded
+              // This prevents race conditions when multiple cron jobs run simultaneously
+              const currentTracking = await prisma.emailTracking.findUnique({
+                where: { id: tracked.id },
+                select: { isForwarded: true },
+              });
+
+              if (currentTracking?.isForwarded) {
+                console.log(`⏭️  [Auto-Forward] Email ${tracked.id} already forwarded, skipping`);
+                // Still check for replies if already forwarded
+                if (tracked.forwardMessageId) {
+                  await this.checkForReplies(tracked.id, config, tracked.forwardMessageId);
+                }
+                return tracked;
+              }
+
               const { ForwardingRuleService } = await import('./forwarding-rule-service');
               const { EmailForwardService } = await import('./email-forward-service');
               
               const rules = await ForwardingRuleService.getRulesBySenderId(senderId, userId);
               
+              // Collect all forward-to emails from matching rules (to forward to all at once)
+              const allForwardToEmails = new Set<string>();
+              let shouldForward = false;
+              
               // Check all active rules for this sender
               for (const rule of rules) {
                 if (rule.isActive && rule.autoForward && rule.forwardToEmails) {
+                  // CRITICAL: Only forward emails received AFTER the rule was created
+                  // This prevents forwarding old emails when a new rule is created
+                  const ruleCreatedAt = new Date(rule.createdAt);
+                  const emailReceivedAt = new Date(email.receivedDateTime);
+                  
+                  if (emailReceivedAt < ruleCreatedAt) {
+                    console.log(`⏭️  [Auto-Forward] Email received before rule was created (${emailReceivedAt.toISOString()} < ${ruleCreatedAt.toISOString()}), skipping`);
+                    continue; // Skip this rule, try next one
+                  }
+                  
                   // Check subject filter if provided (partial match, case-insensitive)
-                  let shouldForward = true;
+                  let ruleMatches = true;
                   if (rule.subjectFilter && rule.subjectFilter.trim()) {
                     const emailSubject = email.subject || '';
                     const subjectFilter = rule.subjectFilter.trim().toLowerCase();
-                    shouldForward = emailSubject.toLowerCase().includes(subjectFilter);
+                    ruleMatches = emailSubject.toLowerCase().includes(subjectFilter);
                     
                     console.log(`🔍 [Auto-Forward] Subject filter check:`, {
                       emailSubject: emailSubject,
                       subjectFilter: rule.subjectFilter,
-                      matches: shouldForward,
+                      matches: ruleMatches,
                     });
                   }
                   
-                  if (shouldForward) {
+                  if (ruleMatches) {
+                    shouldForward = true;
+                    // Add all forward-to emails from this rule
                     const forwardToArray = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
-                    
-                    if (forwardToArray.length > 0) {
-                      console.log(`📤 [Auto-Forward] Forwarding email "${email.subject}" to:`, forwardToArray);
-                      const forwardResult = await EmailForwardService.forwardEmail(config, {
-                        originalMessageId: email.id,
-                        forwardTo: forwardToArray,
-                        includeOriginalBody: true,
-                      });
-                      
-                      console.log(`📝 [Auto-Forward] Forward result messageId:`, forwardResult.messageId);
-                      
-                      await this.markAsForwarded(tracked.id, rule.forwardToEmails, forwardResult.messageId, true);
-                      console.log(`✅ [Auto-Forward] Email forwarded successfully with messageId: ${forwardResult.messageId}`);
-                      
-                      // Check for replies after forwarding (with a delay to allow email to be sent)
-                      if (forwardResult.messageId && forwardResult.messageId !== 'forwarded') {
-                        setTimeout(async () => {
-                          await this.checkForReplies(tracked.id, config, forwardResult.messageId);
-                        }, 5000); // Wait 5 seconds before checking for replies
-                      }
-                      
-                      // Break after first matching rule to avoid forwarding multiple times
-                      break;
-                    }
-                  } else {
-                    console.log(`⏭️  [Auto-Forward] Email skipped - subject filter did not match`);
+                    forwardToArray.forEach(email => allForwardToEmails.add(email));
                   }
+                }
+              }
+              
+              // Forward to all collected emails at once (prevents duplicate sends)
+              if (shouldForward && allForwardToEmails.size > 0) {
+                const forwardToArray = Array.from(allForwardToEmails);
+                
+                // Double-check: Atomically mark as forwarding to prevent concurrent sends
+                const updateResult = await prisma.emailTracking.updateMany({
+                  where: {
+                    id: tracked.id,
+                    isForwarded: false, // CRITICAL: Only update if NOT already forwarded
+                  },
+                  data: {
+                    isForwarded: true,
+                    forwardedAt: new Date(),
+                    autoForwarded: true,
+                    status: 'forwarded',
+                  } as any,
+                });
+
+                // If no rows were updated, another process already forwarded it
+                if (updateResult.count === 0) {
+                  console.log(`⏭️  [Auto-Forward] Email ${tracked.id} already forwarded by another process, skipping`);
+                  // Still check for replies
+                  const updatedTracking = await prisma.emailTracking.findUnique({
+                    where: { id: tracked.id },
+                    select: { forwardMessageId: true },
+                  });
+                  if (updatedTracking?.forwardMessageId) {
+                    await this.checkForReplies(tracked.id, config, updatedTracking.forwardMessageId);
+                  }
+                  return tracked;
+                }
+
+                console.log(`📤 [Auto-Forward] Forwarding email "${email.subject}" to:`, forwardToArray);
+                const forwardResult = await EmailForwardService.forwardEmail(config, {
+                  originalMessageId: email.id,
+                  forwardTo: forwardToArray,
+                  includeOriginalBody: true,
+                });
+                
+                console.log(`📝 [Auto-Forward] Forward result messageId:`, forwardResult.messageId);
+                
+                // Update with forward message ID and forward-to emails
+                await this.markAsForwarded(tracked.id, forwardToArray.join(', '), forwardResult.messageId, true);
+                console.log(`✅ [Auto-Forward] Email forwarded successfully with messageId: ${forwardResult.messageId}`);
+                
+                // Check for replies after forwarding (with a delay to allow email to be sent)
+                if (forwardResult.messageId && forwardResult.messageId !== 'forwarded') {
+                  setTimeout(async () => {
+                    await this.checkForReplies(tracked.id, config, forwardResult.messageId);
+                  }, 5000); // Wait 5 seconds before checking for replies
                 }
               }
             } catch (forwardError) {
               console.error('❌ [Auto-Forward] Error auto-forwarding email:', forwardError);
+              // Reset forwarding flag if forwarding failed (so it can be retried)
+              try {
+                await prisma.emailTracking.updateMany({
+                  where: { id: tracked.id },
+                  data: {
+                    isForwarded: false,
+                    forwardedAt: null,
+                    autoForwarded: false,
+                    status: 'received',
+                  } as any,
+                });
+              } catch (resetError) {
+                console.error('❌ [Auto-Forward] Error resetting forwarding flag:', resetError);
+              }
               // Don't fail the sync if forwarding fails
             }
           } else if (tracked && tracked.isForwarded) {

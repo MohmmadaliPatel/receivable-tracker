@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/simple-auth';
 import { EmailConfigService } from '@/lib/email-config-service';
 import { GraphMailService } from '@/lib/graph-mail-service';
+import { cronService } from '@/lib/cron-service';
 import { cookies } from 'next/headers';
 
 // Helper to get authenticated user
@@ -73,6 +74,17 @@ export async function PUT(
       ...(reminderDurationHours !== undefined && { reminderDurationHours }),
       ...(reminderDurationUnit !== undefined && { reminderDurationUnit }),
     });
+
+    // Reload cron jobs after config update
+    try {
+      if (config.isActive && config.cronEnabled) {
+        await cronService.startJobForConfig(config.id);
+      } else {
+        cronService.stopJobForConfig(config.id);
+      }
+    } catch (error) {
+      console.error('Error reloading cron job:', error);
+    }
 
     return NextResponse.json({ config });
   } catch (error) {

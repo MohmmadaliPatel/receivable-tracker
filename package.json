@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:truncate": "tsx scripts/truncate-data.ts",
+    "db:fix-unique": "tsx scripts/remove-senderid-unique-constraint.ts"
   },
   "dependencies": {
     "@auth/core": "^0.34.2",

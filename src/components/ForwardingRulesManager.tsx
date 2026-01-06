@@ -29,10 +29,6 @@ interface ForwardingRule {
   updatedAt: string;
 }
 
-interface ForwardingConfig {
-  forwardToEmails: string[];
-}
-
 export default function ForwardingRulesManager() {
   const [rules, setRules] = useState<ForwardingRule[]>([]);
   const [senders, setSenders] = useState<Sender[]>([]);
@@ -40,9 +36,8 @@ export default function ForwardingRulesManager() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<ForwardingRule | null>(null);
-  const [forwardingConfigs, setForwardingConfigs] = useState<ForwardingConfig[]>([
-    { forwardToEmails: [] }
-  ]);
+  const [selectedForwarderEmails, setSelectedForwarderEmails] = useState<string[]>([]);
+  const [forwarderDropdownValue, setForwarderDropdownValue] = useState<string>('');
   const [formData, setFormData] = useState({
     senderId: '',
     subjectFilter: '',
@@ -92,16 +87,12 @@ export default function ForwardingRulesManager() {
     setError('');
     setSuccess('');
 
-    // Combine all forwarding configs into comma-separated emails
-    const allEmails = forwardingConfigs
-      .map(config => config.forwardToEmails.join(', '))
-      .filter(emails => emails.trim())
-      .join(', ');
-
-    if (!allEmails.trim()) {
-      setError('Please add at least one forward-to email address');
+    if (selectedForwarderEmails.length === 0) {
+      setError('Please select at least one forwarder email');
       return;
     }
+
+    const allEmails = selectedForwarderEmails.join(', ');
 
     try {
       const url = editingRule 
@@ -132,7 +123,8 @@ export default function ForwardingRulesManager() {
         isActive: true,
         autoForward: true,
       });
-      setForwardingConfigs([{ forwardToEmails: [] }]);
+      setSelectedForwarderEmails([]);
+      setForwarderDropdownValue('');
       fetchData();
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -147,22 +139,19 @@ export default function ForwardingRulesManager() {
       isActive: rule.isActive,
       autoForward: rule.autoForward,
     });
-    // Parse forwardToEmails back into configs (split by comma and create configs)
+    // Parse forwardToEmails back into array
     const emails = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
-    setForwardingConfigs(emails.length > 0 
-      ? emails.map(email => ({ forwardToEmails: [email] }))
-      : [{ forwardToEmails: [] }]
-    );
+    setSelectedForwarderEmails(emails);
+    setForwarderDropdownValue('');
     setShowForm(true);
   };
 
+  const handleRemoveForwarder = (forwarderEmail: string) => {
+    setSelectedForwarderEmails(selectedForwarderEmails.filter(email => email !== forwarderEmail));
+  };
 
-  const handleConfigChange = (index: number, value: string[]) => {
-    const updated = [...forwardingConfigs];
-    updated[index] = {
-      forwardToEmails: value,
-    };
-    setForwardingConfigs(updated);
+  const handleClearAllForwarders = () => {
+    setSelectedForwarderEmails([]);
   };
 
   const handleDelete = async (ruleId: string) => {
@@ -210,7 +199,8 @@ export default function ForwardingRulesManager() {
               isActive: true,
               autoForward: true,
             });
-            setForwardingConfigs([{ forwardToEmails: [] }]);
+            setSelectedForwarderEmails([]);
+            setForwarderDropdownValue('');
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -257,58 +247,74 @@ export default function ForwardingRulesManager() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Forward To Emails *
               </label>
-              <div className="space-y-4">
-                {forwardingConfigs.map((config, index) => (
-                  <div key={index} className="border border-gray-300 rounded-lg p-4 bg-white">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Forward To Emails
-                        </label>
-                        <select
-                          value={config.forwardToEmails[0] || ''}
-                          onChange={(e) => {
-                            const selectedEmail = e.target.value;
-                            if (selectedEmail) {
-                              handleConfigChange(index, [selectedEmail]);
-                            }
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
-                          required={index === 0}
-                        >
-                          <option value="">Select Forwarder Email</option>
-                          {forwarders
-                            .filter(f => f.isActive)
-                            .map((forwarder) => (
-                              <option key={forwarder.id} value={forwarder.email}>
-                                {forwarder.name ? `${forwarder.name} (${forwarder.email})` : forwarder.email}
-                              </option>
-                            ))}
-                        </select>
-                        {config.forwardToEmails[0] && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <span className="text-sm text-gray-600 bg-blue-50 px-2 py-1 rounded">
-                              Selected: {config.forwardToEmails[0]}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleConfigChange(index, [])}
-                              className="text-xs text-red-600 hover:text-red-800"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex gap-2 mb-2">
+                <select
+                  value={forwarderDropdownValue}
+                  onChange={(e) => {
+                    const selectedEmail = e.target.value;
+                    if (selectedEmail && !selectedForwarderEmails.includes(selectedEmail)) {
+                      setSelectedForwarderEmails([...selectedForwarderEmails, selectedEmail]);
+                    }
+                    // Reset dropdown to empty
+                    setForwarderDropdownValue('');
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                >
+                  <option value="">Select a forwarder</option>
+                  {forwarders
+                    .filter(f => f.isActive && !selectedForwarderEmails.includes(f.email))
+                    .map((forwarder) => (
+                      <option key={forwarder.id} value={forwarder.email}>
+                        {forwarder.name ? `${forwarder.name} (${forwarder.email})` : forwarder.email}
+                      </option>
+                    ))}
+                </select>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Select forwarder email from the dropdown.
+
+              {/* Selected Forwarders (Tags) */}
+              {selectedForwarderEmails.length > 0 && (
+                <div className="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedForwarderEmails.map((email) => {
+                      const forwarder = forwarders.find(f => f.email === email);
+                      return (
+                        <span
+                          key={email}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                        >
+                          {forwarder?.name ? `${forwarder.name} (${email})` : email}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveForwarder(email)}
+                            className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none font-bold"
+                            title="Remove"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearAllForwarders}
+                    className="text-xs text-red-600 hover:text-red-800"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+
+              {forwarders.filter(f => f.isActive).length === 0 && (
+                <p className="text-sm text-gray-500 mt-2">
+                  No active forwarders available. Please add forwarders first.
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Select forwarders from the dropdown above. Selected forwarders will appear as tags.
               </p>
             </div>
 
@@ -368,7 +374,8 @@ export default function ForwardingRulesManager() {
                     isActive: true,
                     autoForward: true,
                   });
-                  setForwardingConfigs([{ forwardToEmails: [] }]);
+                  setSelectedForwarderEmails([]);
+                  setForwarderDropdownValue('');
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >

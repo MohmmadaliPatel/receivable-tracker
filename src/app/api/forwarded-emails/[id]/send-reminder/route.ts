@@ -70,6 +70,41 @@ export async function POST(
       );
     }
 
+    // Atomically update the record to mark reminder as being sent
+    // This prevents duplicate sends if the endpoint is called multiple times
+    const updateResult = await prisma.emailTracking.updateMany({
+      where: { 
+        id: tracking.id,
+        reminderSent: false, // CRITICAL: Only update if NOT already sent
+      },
+      data: {
+        status: 'reminder_sent',
+        reminderSent: true,
+        reminderSentAt: new Date(),
+      } as any,
+    });
+
+    // If no rows were updated, it means reminder was already sent (race condition)
+    if (updateResult.count === 0) {
+      return NextResponse.json(
+        { error: 'Reminder has already been sent for this email (concurrent request)' },
+        { status: 400 }
+      );
+    }
+
+    // Verify the update was successful
+    const updatedTracking = await prisma.emailTracking.findUnique({
+      where: { id: tracking.id },
+      select: { reminderSent: true },
+    });
+
+    if (!updatedTracking || !updatedTracking.reminderSent) {
+      return NextResponse.json(
+        { error: 'Failed to mark reminder as sent' },
+        { status: 500 }
+      );
+    }
+
     // Send reminder email to all forwarded-to addresses
     const forwardToEmails = tracking.forwardedTo.split(',').map(e => e.trim()).filter(e => e);
     const reminderSubject = 'Reminder';
@@ -81,29 +116,6 @@ export async function POST(
           to: email,
           subject: reminderSubject,
           body: reminderBody,
-        });
-      }
-
-      // Update tracking to mark reminder sent
-      // Using raw SQL temporarily until Prisma client is regenerated
-      try {
-        await prisma.$executeRaw`
-          UPDATE email_trackings 
-          SET status = 'reminder_sent', 
-              reminderSent = 1, 
-              reminderSentAt = ${new Date()},
-              updatedAt = ${new Date()}
-          WHERE id = ${tracking.id}
-        `;
-      } catch (error: any) {
-        // Fallback: try with Prisma update (will work after Prisma regenerate)
-        await prisma.emailTracking.update({
-          where: { id: tracking.id },
-          data: {
-            status: 'reminder_sent',
-            reminderSent: true,
-            reminderSentAt: new Date(),
-          } as any,
         });
       }
 

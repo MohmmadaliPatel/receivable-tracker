@@ -11,16 +11,16 @@ export async function POST(request: NextRequest) {
       await deleteSession(sessionToken);
     }
 
-    // Clear session cookie
-    const response = NextResponse.json({ success: true });
+    // Clear session cookie and redirect to login page
+    const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.delete('session_token');
 
     return response;
   } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Even on error, redirect to login page
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('session_token');
+    return response;
   }
 }

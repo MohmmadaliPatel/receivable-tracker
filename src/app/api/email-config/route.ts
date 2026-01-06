@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/simple-auth';
 import { EmailConfigService } from '@/lib/email-config-service';
+import { cronService } from '@/lib/cron-service';
 import { cookies } from 'next/headers';
 
 // Helper to get authenticated user
@@ -68,6 +69,15 @@ export async function POST(request: NextRequest) {
       reminderDurationHours: reminderDurationHours || 24,
       reminderDurationUnit: reminderDurationUnit || 'hours',
     });
+
+    // Start cron job if config is active and cron enabled
+    try {
+      if (config.isActive && config.cronEnabled) {
+        await cronService.startJobForConfig(config.id);
+      }
+    } catch (error) {
+      console.error('Error starting cron job:', error);
+    }
 
     return NextResponse.json({ config }, { status: 201 });
   } catch (error) {

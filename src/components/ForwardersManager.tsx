@@ -223,7 +223,7 @@ export default function ForwardersManager() {
                 placeholder="Forwarder Name"
               />
             </div>
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Default Subject (Optional)
               </label>
@@ -234,7 +234,7 @@ export default function ForwardersManager() {
                 className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg"
                 placeholder="e.g., Account Statement"
               />
-            </div>
+            </div> */}
             <div className="flex space-x-3">
               <button
                 type="submit"
