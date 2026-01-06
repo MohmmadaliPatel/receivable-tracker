@@ -251,6 +251,7 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
               const { EmailForwardService } = await import('./email-forward-service');
               
               const rules = await ForwardingRuleService.getRulesBySenderId(senderId, userId);
+              const rules = await ForwardingRuleService.getRulesBySenderId(senderId, userId);
               
               // Collect all forward-to emails from matching rules (to forward to all at once)
               const allForwardToEmails = new Set<string>();
