@@ -1,15 +1,15 @@
 import { prisma } from './prisma';
 
 export class ForwardingRuleService {
-  // Get forwarding rule for a recipient
-  static async getRuleByRecipientId(recipientId: string, userId: string) {
+  // Get forwarding rule for a sender
+  static async getRuleBySenderId(senderId: string, userId: string) {
     return prisma.forwardingRule.findFirst({
       where: {
-        recipientId,
+        senderId,
         userId,
       },
       include: {
-        recipient: true,
+        sender: true,
       },
     });
   }
@@ -19,7 +19,7 @@ export class ForwardingRuleService {
     return prisma.forwardingRule.findMany({
       where: { userId },
       include: {
-        recipient: true,
+        sender: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -27,14 +27,14 @@ export class ForwardingRuleService {
 
   // Create or update forwarding rule
   static async upsertRule(
-    recipientId: string,
+    senderId: string,
     userId: string,
     forwardToEmails: string,
     options: { isActive?: boolean; autoForward?: boolean; subjectFilter?: string } = {}
   ) {
     return prisma.forwardingRule.upsert({
       where: {
-        recipientId,
+        senderId,
       },
       update: {
         forwardToEmails,
@@ -43,7 +43,7 @@ export class ForwardingRuleService {
         autoForward: options.autoForward !== undefined ? options.autoForward : true,
       },
       create: {
-        recipientId,
+        senderId,
         userId,
         forwardToEmails,
         subjectFilter: options.subjectFilter || null,
@@ -54,10 +54,10 @@ export class ForwardingRuleService {
   }
 
   // Delete forwarding rule
-  static async deleteRule(recipientId: string, userId: string) {
+  static async deleteRule(senderId: string, userId: string) {
     return prisma.forwardingRule.deleteMany({
       where: {
-        recipientId,
+        senderId,
         userId,
       },
     });
@@ -72,7 +72,7 @@ export class ForwardingRuleService {
         autoForward: true,
       },
       include: {
-        recipient: true,
+        sender: true,
       },
     });
   }

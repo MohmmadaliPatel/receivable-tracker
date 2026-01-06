@@ -112,17 +112,17 @@ export interface GraphEmail {
 }
 
 export class EmailFetchService {
-  // Fetch emails sent to a specific recipient
-  static async fetchEmailsForRecipient(
+  // Fetch emails sent to a specific sender
+  static async fetchEmailsForSender(
     config: EmailConfig,
-    recipientEmail: string,
+    senderEmail: string,
     limit: number = 50
   ): Promise<GraphEmail[]> {
     try {
       console.log('📧 [Email Fetch] Starting email fetch process');
       console.log('📧 [Email Fetch] Parameters:', {
         fromEmail: config.fromEmail,
-        recipientEmail: recipientEmail,
+        senderEmail: senderEmail,
         limit: limit,
         tenantId: config.msTenantId,
         clientId: config.msClientId,
@@ -132,9 +132,9 @@ export class EmailFetchService {
       console.log('✅ [Email Fetch] Access token obtained successfully');
       console.log('🔑 [Email Fetch] Token preview:', accessToken.substring(0, 20) + '...');
 
-      // Microsoft Graph API filter syntax for recipient emails
+      // Microsoft Graph API filter syntax for sender emails
       // Properly escape the email address
-      const escapedEmail = recipientEmail.replace(/'/g, "''");
+      const escapedEmail = senderEmail.replace(/'/g, "''");
       
       // Build the filter - try simpler approach first, then filter client-side if needed
       const select = 'id,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments';
@@ -239,9 +239,9 @@ export class EmailFetchService {
         console.warn('   - There are no messages in the mailbox');
       }
       
-      // Filter client-side for emails sent to the recipient
+      // Filter client-side for emails sent to the sender
       // This is more reliable than OData filter with 'any' operator
-      console.log('🔍 [Email Fetch] Filtering emails for recipient or sender:', recipientEmail);
+      console.log('🔍 [Email Fetch] Filtering emails for sender:', senderEmail);
       const beforeFilterCount = emails.length;
       const emailData: any[] = [];
       emails = emails.filter((email) => {
@@ -249,19 +249,19 @@ export class EmailFetchService {
 
         // Check direct recipients
         const matchesRecipient = recipients.some(
-          (r: any) => r.emailAddress?.address?.toLowerCase() === recipientEmail.toLowerCase()
+          (r: any) => r.emailAddress?.address?.toLowerCase() === senderEmail.toLowerCase()
         );
 
-        // ALSO check if the sender (from.address) matches the recipientEmail
+        // ALSO check if the sender (from.address) matches the senderEmail
         const fromAddress = email.from?.emailAddress?.address?.toLowerCase();
-        const matchesSender = fromAddress === recipientEmail.toLowerCase();
+        const matchesSender = fromAddress === senderEmail.toLowerCase();
 
         const matches = matchesRecipient || matchesSender;
 
         if (!matches && recipients.length > 0) {
           // Log non-matching emails for debugging
           const recipientAddresses = recipients.map((r: any) => r.emailAddress?.address).filter(Boolean);
-          console.log(`  ⚠️  Email "${email.subject}" sent to:`, recipientAddresses, 'from:', fromAddress, 'does not match:', recipientEmail);
+          console.log(`  ⚠️  Email "${email.subject}" sent to:`, recipientAddresses, 'from:', fromAddress, 'does not match:', senderEmail);
           emailData.push({
             id: email.id,
             subject: email.subject,
@@ -288,13 +288,13 @@ export class EmailFetchService {
         const timestamp = new Date().toISOString();
         const fileContents =
           `================= ${timestamp} =================\n` +
-          `Recipient: ${recipientEmail}\n` +
+          `Sender: ${senderEmail}\n` +
           `Total non-matching emails: ${emailData.length}\n` +
           JSON.stringify(emailData, null, 2) +
           '\n\n';
 
         fs.appendFileSync(debugFilePath, fileContents, 'utf8');
-        console.log('📝 [Email Fetch Debug] Non-matching recipient emails written to:', debugFilePath);
+        console.log('📝 [Email Fetch Debug] Non-matching sender emails written to:', debugFilePath);
       } catch (err) {
         console.error('❌ [Email Fetch Debug] Failed to write debug email data to file:', err);
       }
@@ -302,15 +302,15 @@ export class EmailFetchService {
       console.log('✅ [Email Fetch] Filtering complete:', {
         beforeFilter: beforeFilterCount,
         afterFilter: emails.length,
-        recipientEmail: recipientEmail,
+        senderEmail: senderEmail,
       });
       
       if (emails.length === 0 && beforeFilterCount > 0) {
-        console.warn('⚠️  [Email Fetch] No emails matched the recipient filter!');
+        console.warn('⚠️  [Email Fetch] No emails matched the sender filter!');
         console.warn('⚠️  [Email Fetch] This might mean:');
-        console.warn('   - The recipient email does not match exactly (case-sensitive comparison)');
+        console.warn('   - The sender email does not match exactly (case-sensitive comparison)');
         console.warn('   - The emails are in CC or BCC instead of To');
-        console.warn('   - The recipient email format is different');
+        console.warn('   - The sender email format is different');
       }
 
       // Fetch attachments for emails that have them
@@ -352,15 +352,15 @@ export class EmailFetchService {
       console.log('🎉 [Email Fetch] Final result:', {
         totalEmails: emailsWithAttachments.length,
         emailsWithAttachments: emailsWithAttachments.filter(e => e.attachments && e.attachments.length > 0).length,
-        recipientEmail: recipientEmail,
+        senderEmail: senderEmail,
       });
 
       console.log('📧 [Email Fetch] ============================================');
       console.log('📧 [Email Fetch] SUMMARY:');
       console.log('📧 [Email Fetch] Fetching from mailbox:', config.fromEmail);
-      console.log('📧 [Email Fetch] Looking for emails sent to:', recipientEmail);
+      console.log('📧 [Email Fetch] Looking for emails sent to:', senderEmail);
       console.log('📧 [Email Fetch] Total emails fetched from API:', data.value?.length || 0);
-      console.log('📧 [Email Fetch] Emails matching recipient:', emailsWithAttachments.length);
+      console.log('📧 [Email Fetch] Emails matching sender:', emailsWithAttachments.length);
       console.log('📧 [Email Fetch] ============================================');
 
       return emailsWithAttachments;
@@ -368,7 +368,7 @@ export class EmailFetchService {
       console.error('❌ [Email Fetch] Error fetching emails:', {
         message: error.message,
         stack: error.stack,
-        recipientEmail: recipientEmail,
+        senderEmail: senderEmail,
         fromEmail: config.fromEmail,
       });
       throw error;

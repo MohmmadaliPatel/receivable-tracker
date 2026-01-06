@@ -33,17 +33,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { recipientId, forwardToEmails, isActive, autoForward, subjectFilter } = body;
+    const { senderId, forwardToEmails, isActive, autoForward, subjectFilter } = body;
 
-    if (!recipientId || !forwardToEmails) {
+    if (!senderId || !forwardToEmails) {
       return NextResponse.json(
-        { error: 'recipientId and forwardToEmails are required' },
+        { error: 'senderId and forwardToEmails are required' },
         { status: 400 }
       );
     }
 
     const rule = await ForwardingRuleService.upsertRule(
-      recipientId,
+      senderId,
       user.userId,
       forwardToEmails,
       { isActive, autoForward, subjectFilter }

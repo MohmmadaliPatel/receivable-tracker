@@ -24,17 +24,13 @@ export async function GET(request: NextRequest) {
         isForwarded: true,
       },
       include: {
-        recipient: {
+        sender: {
           select: {
             email: true,
             name: true,
           },
         },
-        emailConfig: {
-          select: {
-            fromEmail: true,
-          },
-        },
+        emailConfig: true, // Include all emailConfig fields
       },
       orderBy: {
         forwardedAt: 'desc',

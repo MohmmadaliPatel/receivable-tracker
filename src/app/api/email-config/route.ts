@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, msTenantId, msClientId, msClientSecret, fromEmail, isActive, cronEnabled, cronIntervalMinutes } = body;
+    const { name, type, msTenantId, msClientId, msClientSecret, fromEmail, isActive, cronEnabled, cronIntervalMinutes, reminderEnabled, reminderDurationHours, reminderDurationUnit } = body;
 
     // Validate required fields
     if (!name || !msTenantId || !msClientId || !msClientSecret || !fromEmail) {
@@ -64,6 +64,9 @@ export async function POST(request: NextRequest) {
       isActive,
       cronEnabled: cronEnabled || false,
       cronIntervalMinutes: cronIntervalMinutes || 10,
+      reminderEnabled: reminderEnabled || false,
+      reminderDurationHours: reminderDurationHours || 24,
+      reminderDurationUnit: reminderDurationUnit || 'hours',
     });
 
     return NextResponse.json({ config }, { status: 201 });

@@ -57,7 +57,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, type, msTenantId, msClientId, msClientSecret, fromEmail, isActive, cronEnabled, cronIntervalMinutes } = body;
+    const { name, type, msTenantId, msClientId, msClientSecret, fromEmail, isActive, cronEnabled, cronIntervalMinutes, reminderEnabled, reminderDurationHours, reminderDurationUnit } = body;
 
     const config = await EmailConfigService.updateConfig(id, user.userId, {
       ...(name && { name }),
@@ -69,6 +69,9 @@ export async function PUT(
       ...(isActive !== undefined && { isActive }),
       ...(cronEnabled !== undefined && { cronEnabled }),
       ...(cronIntervalMinutes !== undefined && { cronIntervalMinutes }),
+      ...(reminderEnabled !== undefined && { reminderEnabled }),
+      ...(reminderDurationHours !== undefined && { reminderDurationHours }),
+      ...(reminderDurationUnit !== undefined && { reminderDurationUnit }),
     });
 
     return NextResponse.json({ config });

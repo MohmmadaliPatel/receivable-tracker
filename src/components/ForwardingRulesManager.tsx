@@ -2,40 +2,57 @@
 
 import { useState, useEffect, FormEvent, KeyboardEvent } from 'react';
 
-interface Recipient {
+interface Sender {
   id: string;
   email: string;
   name: string | null;
   isActive: boolean;
 }
 
+interface Forwarder {
+  id: string;
+  email: string;
+  name: string | null;
+  subject: string | null;
+  isActive: boolean;
+}
+
 interface ForwardingRule {
   id: string;
-  recipientId: string;
+  senderId: string;
   forwardToEmails: string;
   subjectFilter: string | null;
   isActive: boolean;
   autoForward: boolean;
-  recipient: Recipient;
+  sender: Sender;
   createdAt: string;
   updatedAt: string;
 }
 
+interface ForwardingConfig {
+  forwardToEmails: string[];
+}
+
 export default function ForwardingRulesManager() {
   const [rules, setRules] = useState<ForwardingRule[]>([]);
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [senders, setSenders] = useState<Sender[]>([]);
+  const [forwarders, setForwarders] = useState<Forwarder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<ForwardingRule | null>(null);
+  const [forwardingConfigs, setForwardingConfigs] = useState<ForwardingConfig[]>([
+    { forwardToEmails: [] }
+  ]);
   const [formData, setFormData] = useState({
-    recipientId: '',
-    forwardToEmails: '',
+    senderId: '',
     subjectFilter: '',
     isActive: true,
     autoForward: true,
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
 
   useEffect(() => {
     fetchData();
@@ -43,9 +60,10 @@ export default function ForwardingRulesManager() {
 
   const fetchData = async () => {
     try {
-      const [rulesRes, recipientsRes] = await Promise.all([
+      const [rulesRes, sendersRes, forwardersRes] = await Promise.all([
         fetch('/api/forwarding-rules'),
-        fetch('/api/recipients'),
+        fetch('/api/senders'),
+        fetch('/api/forwarders'),
       ]);
 
       if (rulesRes.ok) {
@@ -53,9 +71,14 @@ export default function ForwardingRulesManager() {
         setRules(rulesData.rules || []);
       }
 
-      if (recipientsRes.ok) {
-        const recipientsData = await recipientsRes.json();
-        setRecipients(recipientsData.recipients || []);
+      if (sendersRes.ok) {
+        const sendersData = await sendersRes.json();
+        setSenders(sendersData.senders || []);
+      }
+
+      if (forwardersRes.ok) {
+        const forwardersData = await forwardersRes.json();
+        setForwarders(forwardersData.forwarders || []);
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -69,11 +92,25 @@ export default function ForwardingRulesManager() {
     setError('');
     setSuccess('');
 
+    // Combine all forwarding configs into comma-separated emails
+    const allEmails = forwardingConfigs
+      .map(config => config.forwardToEmails.join(', '))
+      .filter(emails => emails.trim())
+      .join(', ');
+
+    if (!allEmails.trim()) {
+      setError('Please add at least one forward-to email address');
+      return;
+    }
+
     try {
       const response = await fetch('/api/forwarding-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          forwardToEmails: allEmails,
+        }),
       });
 
       if (!response.ok) {
@@ -85,12 +122,12 @@ export default function ForwardingRulesManager() {
       setShowForm(false);
       setEditingRule(null);
       setFormData({
-        recipientId: '',
-        forwardToEmails: '',
+        senderId: '',
         subjectFilter: '',
         isActive: true,
         autoForward: true,
       });
+      setForwardingConfigs([{ forwardToEmails: [] }]);
       fetchData();
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -100,22 +137,36 @@ export default function ForwardingRulesManager() {
   const handleEdit = (rule: ForwardingRule) => {
     setEditingRule(rule);
     setFormData({
-      recipientId: rule.recipientId,
-      forwardToEmails: rule.forwardToEmails,
+      senderId: rule.senderId,
       subjectFilter: rule.subjectFilter || '',
       isActive: rule.isActive,
       autoForward: rule.autoForward,
     });
+    // Parse forwardToEmails back into configs (split by comma and create configs)
+    const emails = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
+    setForwardingConfigs(emails.length > 0 
+      ? emails.map(email => ({ forwardToEmails: [email] }))
+      : [{ forwardToEmails: [] }]
+    );
     setShowForm(true);
   };
 
-  const handleDelete = async (recipientId: string) => {
+
+  const handleConfigChange = (index: number, value: string[]) => {
+    const updated = [...forwardingConfigs];
+    updated[index] = {
+      forwardToEmails: value,
+    };
+    setForwardingConfigs(updated);
+  };
+
+  const handleDelete = async (senderId: string) => {
     if (!confirm('Are you sure you want to delete this forwarding rule?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/forwarding-rules/${recipientId}`, {
+      const response = await fetch(`/api/forwarding-rules/${senderId}`, {
         method: 'DELETE',
       });
 
@@ -140,7 +191,7 @@ export default function ForwardingRulesManager() {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Email Forwarding Rules</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Configure automatic forwarding for recipients. When emails are received from a recipient,
+            Configure automatic forwarding for senders. When emails are received from a sender,
             they will be automatically forwarded to the specified email addresses.
           </p>
         </div>
@@ -149,12 +200,12 @@ export default function ForwardingRulesManager() {
             setShowForm(true);
             setEditingRule(null);
             setFormData({
-              recipientId: '',
-              forwardToEmails: '',
+              senderId: '',
               subjectFilter: '',
               isActive: true,
               autoForward: true,
             });
+            setForwardingConfigs([{ forwardToEmails: [] }]);
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -182,19 +233,19 @@ export default function ForwardingRulesManager() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Recipient *
+                Sender *
               </label>
               <select
-                value={formData.recipientId}
-                onChange={(e) => setFormData({ ...formData, recipientId: e.target.value })}
+                value={formData.senderId}
+                onChange={(e) => setFormData({ ...formData, senderId: e.target.value })}
                 required
                 disabled={!!editingRule}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 disabled:bg-gray-100"
               >
-                <option value="">Select a recipient</option>
-                {recipients.map((recipient) => (
-                  <option key={recipient.id} value={recipient.id}>
-                    {recipient.name || recipient.email} ({recipient.email})
+                <option value="">Select a sender</option>
+                {senders.map((sender) => (
+                  <option key={sender.id} value={sender.id}>
+                    {sender.name || sender.email} ({sender.email})
                   </option>
                 ))}
               </select>
@@ -204,12 +255,55 @@ export default function ForwardingRulesManager() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Forward To Emails *
               </label>
-              <EmailInput
-                emails={formData.forwardToEmails ? formData.forwardToEmails.split(',').map(e => e.trim()).filter(e => e) : []}
-                onChange={(emails) => setFormData({ ...formData, forwardToEmails: emails.join(', ') })}
-              />
+              <div className="space-y-4">
+                {forwardingConfigs.map((config, index) => (
+                  <div key={index} className="border border-gray-300 rounded-lg p-4 bg-white">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Forward To Emails
+                        </label>
+                        <select
+                          value={config.forwardToEmails[0] || ''}
+                          onChange={(e) => {
+                            const selectedEmail = e.target.value;
+                            if (selectedEmail) {
+                              handleConfigChange(index, [selectedEmail]);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                          required={index === 0}
+                        >
+                          <option value="">Select Forwarder Email</option>
+                          {forwarders
+                            .filter(f => f.isActive)
+                            .map((forwarder) => (
+                              <option key={forwarder.id} value={forwarder.email}>
+                                {forwarder.name ? `${forwarder.name} (${forwarder.email})` : forwarder.email}
+                              </option>
+                            ))}
+                        </select>
+                        {config.forwardToEmails[0] && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-sm text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                              Selected: {config.forwardToEmails[0]}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleConfigChange(index, [])}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <p className="text-xs text-gray-500 mt-2">
-                Add email addresses to forward emails to. Click the X to remove an email.
+                Select forwarder email from the dropdown.
               </p>
             </div>
 
@@ -263,6 +357,13 @@ export default function ForwardingRulesManager() {
                 onClick={() => {
                   setShowForm(false);
                   setEditingRule(null);
+                  setFormData({
+                    senderId: '',
+                    subjectFilter: '',
+                    isActive: true,
+                    autoForward: true,
+                  });
+                  setForwardingConfigs([{ forwardToEmails: [] }]);
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
@@ -273,26 +374,94 @@ export default function ForwardingRulesManager() {
         </div>
       )}
 
+      {/* Search and Filter Bar */}
+      <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search Rules
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by sender name, email, or forward-to emails..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="md:w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by Status
+            </label>
+            <select
+              value={filterActive}
+              onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'inactive')}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Rules</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-4">
-        {rules.length === 0 ? (
+        {(() => {
+          // Filter rules based on search and status
+          let filteredRules = rules;
+          
+          // Apply status filter
+          if (filterActive === 'active') {
+            filteredRules = filteredRules.filter(rule => rule.isActive);
+          } else if (filterActive === 'inactive') {
+            filteredRules = filteredRules.filter(rule => !rule.isActive);
+          }
+          
+          // Apply search filter
+          if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filteredRules = filteredRules.filter(rule => 
+              rule.sender.email.toLowerCase().includes(query) ||
+              (rule.sender.name && rule.sender.name.toLowerCase().includes(query)) ||
+              rule.forwardToEmails.toLowerCase().includes(query) ||
+              (rule.subjectFilter && rule.subjectFilter.toLowerCase().includes(query))
+            );
+          }
+          
+          return filteredRules.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-lg mb-2">No forwarding rules configured</p>
-            <p className="text-sm">Create a rule to automatically forward emails from recipients</p>
+            <p className="text-lg mb-2">
+              {rules.length === 0 
+                ? 'No forwarding rules configured'
+                : 'No rules match your search criteria'}
+            </p>
+            <p className="text-sm">
+              {rules.length === 0 
+                ? 'Create a rule to automatically forward emails from recipients'
+                : 'Try adjusting your search or filter options'}
+            </p>
           </div>
         ) : (
-          rules.map((rule) => (
-            <div
-              key={rule.id}
-              className={`bg-white border rounded-lg p-5 ${
-                rule.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {rule.recipient.name || rule.recipient.email}
-                    </h3>
+          <>
+            {searchQuery || filterActive !== 'all' ? (
+              <div className="mb-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                Showing {filteredRules.length} of {rules.length} rule(s)
+              </div>
+            ) : null}
+            {filteredRules.map((rule) => (
+              <div
+                key={rule.id}
+                className={`bg-white border rounded-lg p-5 ${
+                  rule.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {rule.sender.name || rule.sender.email}
+                      </h3>
                     {rule.isActive && (
                       <span className="px-2 py-1 bg-green-500 text-white text-xs rounded">
                         Active
@@ -310,7 +479,7 @@ export default function ForwardingRulesManager() {
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mb-2">
-                    <strong>Recipient:</strong> {rule.recipient.email}
+                    <strong>Sender:</strong> {rule.sender.email}
                   </p>
                   <p className="text-sm text-gray-600 mb-2">
                     <strong>Forward To:</strong> {rule.forwardToEmails}
@@ -329,7 +498,7 @@ export default function ForwardingRulesManager() {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(rule.recipientId)}
+                    onClick={() => handleDelete(rule.senderId)}
                     className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
                   >
                     Delete
@@ -337,8 +506,10 @@ export default function ForwardingRulesManager() {
                 </div>
               </div>
             </div>
-          ))
-        )}
+          ))}
+          </>
+        );
+        })()}
       </div>
     </div>
   );

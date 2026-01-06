@@ -10,6 +10,9 @@ export interface EmailConfigData {
   isActive?: boolean;
   cronEnabled?: boolean;
   cronIntervalMinutes?: number;
+  reminderEnabled?: boolean;
+  reminderDurationHours?: number;
+  reminderDurationUnit?: string;
 }
 
 export class EmailConfigService {
@@ -73,14 +76,20 @@ export class EmailConfigService {
       });
     }
 
+    // Build update data, filtering out undefined values
+    const updateData: any = {};
+    Object.keys(data).forEach((key) => {
+      if (data[key as keyof EmailConfigData] !== undefined) {
+        updateData[key] = data[key as keyof EmailConfigData];
+      }
+    });
+
     return prisma.emailConfig.update({
       where: {
         id,
         userId: userId, // Ensure user owns this config
       },
-      data: {
-        ...data,
-      },
+      data: updateData,
     });
   }
 

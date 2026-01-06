@@ -6,7 +6,7 @@ import path from 'path';
 
 export class EmailTrackingService {
   // Log email to text file for testing
-  static async logEmailToFile(graphEmail: GraphEmail, recipientEmail: string) {
+  static async logEmailToFile(graphEmail: GraphEmail, senderEmail: string) {
     try {
       const logDir = path.join(process.cwd(), 'logs');
       if (!fs.existsSync(logDir)) {
@@ -24,7 +24,7 @@ From: ${graphEmail.from?.emailAddress.name || ''} <${graphEmail.from?.emailAddre
 To: ${graphEmail.toRecipients?.map((r: any) => r.emailAddress?.address).join(', ') || 'N/A'}
 Received: ${graphEmail.receivedDateTime}
 Has Attachments: ${graphEmail.hasAttachments ? 'Yes' : 'No'}
-Recipient Being Tracked: ${recipientEmail}
+Sender Being Tracked: ${senderEmail}
 Body Preview: ${graphEmail.bodyPreview || 'N/A'}
 ================================================================================
 `;
@@ -39,7 +39,7 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
 
   // Track a new email (store in database)
   static async trackEmail(
-    recipientId: string,
+    senderId: string,
     emailConfigId: string,
     userId: string,
     graphEmail: GraphEmail
@@ -53,15 +53,15 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
       return existing;
     }
 
-    // Extract recipient email from toRecipients
-    const recipientEmail = graphEmail.toRecipients?.[0]?.emailAddress.address || '';
+    // Extract sender email from toRecipients
+    const senderEmail = graphEmail.toRecipients?.[0]?.emailAddress.address || '';
 
     // Log email to file for testing
-    await this.logEmailToFile(graphEmail, recipientEmail);
+    await this.logEmailToFile(graphEmail, senderEmail);
 
     return prisma.emailTracking.create({
       data: {
-        recipientId,
+        senderId,
         emailConfigId,
         userId,
         originalMessageId: graphEmail.id,
@@ -209,10 +209,10 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
     }
   }
 
-  // Sync emails for a recipient (fetch from Graph API and track)
-  static async syncEmailsForRecipient(
-    recipientEmail: string,
-    recipientId: string,
+  // Sync emails for a sender (fetch from Graph API and track)
+  static async syncEmailsForSender(
+    senderEmail: string,
+    senderId: string,
     config: EmailConfig,
     userId: string,
     limit: number = 50,
@@ -220,12 +220,12 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
   ) {
     try {
       // Fetch emails from Graph API
-      const graphEmails = await EmailFetchService.fetchEmailsForRecipient(config, recipientEmail, limit);
+      const graphEmails = await EmailFetchService.fetchEmailsForSender(config, senderEmail, limit);
 
       // Track each email
       const trackedEmails = await Promise.all(
         graphEmails.map(async (email) => {
-          const tracked = await this.trackEmail(recipientId, config.id, userId, email);
+          const tracked = await this.trackEmail(senderId, config.id, userId, email);
           
           // Auto-forward if enabled and not already forwarded
           if (autoForward && tracked && !tracked.isForwarded) {
@@ -233,7 +233,7 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
               const { ForwardingRuleService } = await import('./forwarding-rule-service');
               const { EmailForwardService } = await import('./email-forward-service');
               
-              const rule = await ForwardingRuleService.getRuleByRecipientId(recipientId, userId);
+              const rule = await ForwardingRuleService.getRuleBySenderId(senderId, userId);
               
               if (rule && rule.isActive && rule.autoForward && rule.forwardToEmails) {
                 // Check subject filter if provided (partial match, case-insensitive)
@@ -304,10 +304,10 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
     }
   }
 
-  // Get tracking statistics for a recipient
-  static async getTrackingStats(recipientId: string) {
+  // Get tracking statistics for a sender
+  static async getTrackingStats(senderId: string) {
     const allTrackings = await prisma.emailTracking.findMany({
-      where: { recipientId },
+      where: { senderId },
     });
 
     return {

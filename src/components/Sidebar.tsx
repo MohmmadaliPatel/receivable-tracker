@@ -20,14 +20,19 @@ export default function Sidebar({ user }: SidebarProps) {
       icon: '📊',
     },
     {
-      name: 'Recipients',
-      href: '/recipients',
+      name: 'Senders',
+      href: '/senders',
       icon: '👥',
     },
     {
       name: 'Forwarding Rules',
       href: '/forwarding-rules',
       icon: '📧',
+    },
+    {
+      name: 'Forwarders',
+      href: '/forwarders',
+      icon: '📤',
     },
     {
       name: 'Forwarded Emails',

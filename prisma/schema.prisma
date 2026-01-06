@@ -30,7 +30,8 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   emailConfigs  EmailConfig[]
-  recipients    Recipient[]
+  senders       Sender[]
+  forwarders    Forwarder[]
 
   @@map("users")
 }
@@ -49,6 +50,9 @@ model EmailConfig {
   isActive        Boolean  @default(true)
   cronEnabled     Boolean  @default(false) // Enable automatic fetching
   cronIntervalMinutes Int  @default(10) // Interval in minutes (e.g., 10 = every 10 minutes)
+  reminderEnabled Boolean  @default(false) // Enable reminder emails
+  reminderDurationHours Int @default(24) // Send reminder if no reply within this duration
+  reminderDurationUnit String @default("hours") // "hours" or "minutes"
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -71,7 +75,7 @@ model Email {
   @@map("emails")
 }
 
-model Recipient {
+model Sender {
   id            String   @id @default(cuid())
   email         String   @unique // Email address to track
   name          String?  // Optional name
@@ -83,13 +87,13 @@ model Recipient {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@map("recipients")
+  @@map("senders")
 }
 
 model EmailTracking {
   id              String   @id @default(cuid())
-  recipientId     String
-  recipient       Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  senderId        String
+  sender          Sender   @relation(fields: [senderId], references: [id], onDelete: Cascade)
   
   // Original email details
   originalMessageId  String   @unique // Graph API message ID
@@ -112,12 +116,16 @@ model EmailTracking {
   lastReplyAt     DateTime?
   replyCount      Int      @default(0)
   
+  // Reminder tracking
+  reminderSent    Boolean  @default(false) // Whether reminder email has been sent
+  reminderSentAt  DateTime? // When reminder was sent
+  
   // Attachments
   hasAttachments  Boolean  @default(false)
   attachmentIds   String?  // JSON array of attachment IDs
   
   // Status
-  status          String   @default("received") // received, forwarded, replied, error
+  status          String   @default("received") // received, forwarded, replied, error, reminder_sent
   errorMessage    String?
   
   userId          String
@@ -159,8 +167,8 @@ model EmailReply {
 
 model ForwardingRule {
   id              String   @id @default(cuid())
-  recipientId     String
-  recipient       Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  senderId        String
+  sender          Sender   @relation(fields: [senderId], references: [id], onDelete: Cascade)
   
   // Forward to emails (comma-separated or JSON array)
   forwardToEmails String   // Comma-separated list of email addresses
@@ -176,6 +184,20 @@ model ForwardingRule {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([recipientId]) // One rule per recipient
+  @@unique([senderId]) // One rule per sender
   @@map("forwarding_rules")
+}
+
+model Forwarder {
+  id            String   @id @default(cuid())
+  email         String   // Email address to send from/to
+  name          String?  // Optional name/description
+  subject       String?  // Default subject template
+  isActive      Boolean  @default(true)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("forwarders")
 }

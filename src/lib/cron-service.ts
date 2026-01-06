@@ -1,6 +1,6 @@
 import { prisma } from './prisma';
 import { EmailConfigService } from './email-config-service';
-import { RecipientService } from './recipient-service';
+import { SenderService } from './sender-service';
 import { EmailTrackingService } from './email-tracking-service';
 
 interface CronJob {
@@ -115,27 +115,27 @@ class CronService {
         return;
       }
 
-      // Get all active recipients for this user
-      const recipients = await RecipientService.getRecipientsByUserId(config.userId);
+      // Get all active senders for this user
+      const senders = await SenderService.getSendersByUserId(config.userId);
 
-      if (recipients.length === 0) {
-        console.log(`ℹ️  [Cron] No recipients found for config ${configId}`);
+      if (senders.length === 0) {
+        console.log(`ℹ️  [Cron] No senders found for config ${configId}`);
         return;
       }
 
-      console.log(`📧 [Cron] Processing ${recipients.length} recipients for config ${configId}`);
+      console.log(`📧 [Cron] Processing ${senders.length} senders for config ${configId}`);
 
-      // Sync emails for each recipient
-      for (const recipient of recipients) {
-        if (!recipient.isActive) {
+      // Sync emails for each sender
+      for (const sender of senders) {
+        if (!sender.isActive) {
           continue;
         }
 
         try {
-          console.log(`📬 [Cron] Syncing emails for recipient: ${recipient.email}`);
-          await EmailTrackingService.syncEmailsForRecipient(
-            recipient.email,
-            recipient.id,
+          console.log(`📬 [Cron] Syncing emails for sender: ${sender.email}`);
+          await EmailTrackingService.syncEmailsForSender(
+            sender.email,
+            sender.id,
             config,
             config.userId,
             50, // limit
@@ -145,7 +145,7 @@ class CronService {
           // Check for replies to all forwarded emails
           await this.checkRepliesForAllForwardedEmails(config, config.userId);
         } catch (error) {
-          console.error(`❌ [Cron] Error syncing recipient ${recipient.email}:`, error);
+          console.error(`❌ [Cron] Error syncing sender ${sender.email}:`, error);
         }
       }
 

@@ -19,7 +19,7 @@ interface EmailTracking {
   status: string;
 }
 
-interface Recipient {
+interface Sender {
   id: string;
   email: string;
   name: string | null;
@@ -29,42 +29,44 @@ interface Recipient {
 }
 
 export default function RecipientTrackingDashboard() {
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [senders, setSenders] = useState<Sender[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null);
+  const [selectedSender, setSelectedSender] = useState<Sender | null>(null);
   const [formData, setFormData] = useState({ email: '', name: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [syncing, setSyncing] = useState<string | null>(null);
   const [forwarding, setForwarding] = useState<string | null>(null);
   const [forwardForm, setForwardForm] = useState<{ trackingId: string; forwardTo: string; customMessage: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
 
   useEffect(() => {
-    fetchRecipients();
+    fetchSenders();
   }, []);
 
-  const fetchRecipients = async () => {
+  const fetchSenders = async () => {
     try {
-      const response = await fetch('/api/recipients');
+      const response = await fetch('/api/senders');
       if (response.ok) {
         const data = await response.json();
-        setRecipients(data.recipients || []);
+        setSenders(data.senders || []);
       }
     } catch (err) {
-      console.error('Error fetching recipients:', err);
+      console.error('Error fetching senders:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddRecipient = async (e: FormEvent) => {
+  const handleAddSender = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
     try {
-      const response = await fetch('/api/recipients', {
+      const response = await fetch('/api/senders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -72,25 +74,25 @@ export default function RecipientTrackingDashboard() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to add recipient');
+        throw new Error(data.error || 'Failed to add sender');
       }
 
-      setSuccess('Recipient added successfully!');
+      setSuccess('Sender added successfully!');
       setShowAddForm(false);
       setFormData({ email: '', name: '' });
-      fetchRecipients();
+      fetchSenders();
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     }
   };
 
-  const handleSync = async (recipientId: string) => {
-    setSyncing(recipientId);
+  const handleSync = async (senderId: string) => {
+    setSyncing(senderId);
     setError('');
     setSuccess('');
 
     try {
-      const response = await fetch(`/api/recipients/${recipientId}/sync`, {
+      const response = await fetch(`/api/senders/${senderId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 50 }),
@@ -103,7 +105,7 @@ export default function RecipientTrackingDashboard() {
 
       const data = await response.json();
       setSuccess(`Synced ${data.fetched} emails successfully!`);
-      fetchRecipients();
+      fetchSenders();
     } catch (err: any) {
       setError(err.message || 'Failed to sync emails');
     } finally {
@@ -138,24 +140,24 @@ export default function RecipientTrackingDashboard() {
     }
   };
 
-  const handleDeleteRecipient = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this recipient? All tracked emails will also be deleted.')) {
+  const handleDeleteSender = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this sender? All tracked emails will also be deleted.')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/recipients/${id}`, {
+      const response = await fetch(`/api/senders/${id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete recipient');
+        throw new Error('Failed to delete sender');
       }
 
-      setSuccess('Recipient deleted successfully!');
-      fetchRecipients();
+      setSuccess('Sender deleted successfully!');
+      fetchSenders();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete recipient');
+      setError(err.message || 'Failed to delete sender');
     }
   };
 
@@ -170,18 +172,18 @@ export default function RecipientTrackingDashboard() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading recipients...</div>;
+    return <div className="text-center py-8">Loading senders...</div>;
   }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Recipient Email Tracking</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Sender Email Tracking</h2>
         <button
           onClick={() => setShowAddForm(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          + Add Recipient
+          + Add Sender
         </button>
       </div>
 
@@ -197,10 +199,42 @@ export default function RecipientTrackingDashboard() {
         </div>
       )}
 
+      {/* Search and Filter Bar */}
+      <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search Recipients
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by sender name or email..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="md:w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by Status
+            </label>
+            <select
+              value={filterActive}
+              onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'inactive')}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Senders</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {showAddForm && (
         <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-xl text-black font-semibold mb-4">Add New Recipient</h3>
-          <form onSubmit={handleAddRecipient} className="space-y-4">
+          <h3 className="text-xl text-black font-semibold mb-4">Add New Sender</h3>
+          <form onSubmit={handleAddSender} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email Address *
@@ -211,7 +245,7 @@ export default function RecipientTrackingDashboard() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
                 className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg"
-                placeholder="recipient@example.com"
+                placeholder="sender@example.com"
               />
             </div>
             <div>
@@ -223,7 +257,7 @@ export default function RecipientTrackingDashboard() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg"
-                placeholder="Recipient Name"
+                placeholder="Sender Name"
               />
             </div>
             <div className="flex space-x-3">
@@ -231,7 +265,7 @@ export default function RecipientTrackingDashboard() {
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Add Recipient
+                Add Sender
               </button>
               <button
                 type="button"
@@ -249,40 +283,68 @@ export default function RecipientTrackingDashboard() {
       )}
 
       <div className="space-y-6">
-        {recipients.length === 0 ? (
+        {(() => {
+          // Filter senders based on search and status
+          let filteredSenders = senders;
+          
+          // Apply status filter
+          if (filterActive === 'active') {
+            filteredSenders = filteredSenders.filter(s => s.isActive);
+          } else if (filterActive === 'inactive') {
+            filteredSenders = filteredSenders.filter(s => !s.isActive);
+          }
+          
+          // Apply search filter
+          if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filteredSenders = filteredSenders.filter(sender => 
+              sender.email.toLowerCase().includes(query) ||
+              (sender.name && sender.name.toLowerCase().includes(query))
+            );
+          }
+          
+          return filteredSenders.length === 0 ? (
           <div className="text-center py-8 text-black">
-            No recipients found. Add a recipient to start tracking emails.
+            {senders.length === 0 
+              ? 'No senders found. Add a sender to start tracking emails.'
+              : 'No senders match your search criteria. Try adjusting your search or filter options.'}
           </div>
         ) : (
-          recipients.map((recipient) => {
-            const stats = getStats(recipient.emailTrackings);
-            const isExpanded = selectedRecipient?.id === recipient.id;
+          <>
+            {searchQuery || filterActive !== 'all' ? (
+              <div className="mb-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                Showing {filteredSenders.length} of {senders.length} sender(s)
+              </div>
+            ) : null}
+            {filteredSenders.map((sender) => {
+            const stats = getStats(sender.emailTrackings);
+            const isExpanded = selectedSender?.id === sender.id;
 
             return (
               <div
-                key={recipient.id}
+                key={sender.id}
                 className={`bg-white border rounded-lg overflow-hidden ${
                   isExpanded ? 'border-blue-500' : 'border-gray-200'
                 }`}
               >
-                {/* Recipient Header */}
+                {/* Sender Header */}
                 <div
                   className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => setSelectedRecipient(isExpanded ? null : recipient)}
+                  onClick={() => setSelectedSender(isExpanded ? null : sender)}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
                         <h3 className="text-lg text-black font-semibold">
-                          {recipient.name || recipient.email}
+                          {sender.name || sender.email}
                         </h3>
-                        {!recipient.isActive && (
+                        {!sender.isActive && (
                           <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">
                             Inactive
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-black">{recipient.email}</p>
+                      <p className="text-sm text-black">{sender.email}</p>
                       <div className="flex text-black space-x-4 mt-2 text-sm">
                         <span>
                           <strong>Total:</strong> {stats.total}
@@ -305,17 +367,17 @@ export default function RecipientTrackingDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSync(recipient.id);
+                          handleSync(sender.id);
                         }}
-                        disabled={syncing === recipient.id}
+                        disabled={syncing === sender.id}
                         className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
                       >
-                        {syncing === recipient.id ? 'Syncing...' : 'Sync Emails'}
+                        {syncing === sender.id ? 'Syncing...' : 'Sync Emails'}
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteRecipient(recipient.id);
+                          handleDeleteSender(sender.id);
                         }}
                         className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
                       >
@@ -330,7 +392,7 @@ export default function RecipientTrackingDashboard() {
                   <div className="border-t bg-gray-50 p-4">
                     <div className="text-sm text-gray-600">
                       <p className="mb-2">
-                        <strong>Summary:</strong> This recipient has {stats.total} total email(s) tracked.
+                        <strong>Summary:</strong> This sender has {stats.total} total email(s) tracked.
                       </p>
                       <p className="mb-2">
                         <strong>Status Breakdown:</strong>
@@ -351,13 +413,13 @@ export default function RecipientTrackingDashboard() {
                 {/* Hidden Email List - Keep for reference but not displayed */}
                 {false && isExpanded && (
                   <div className="border-t bg-gray-50 p-4">
-                    {recipient.emailTrackings.length === 0 ? (
+                    {sender.emailTrackings.length === 0 ? (
                       <div className="text-center py-4 text-black">
                         No emails tracked yet. Click "Sync Emails" to fetch emails.
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {recipient.emailTrackings.map((tracking) => (
+                        {sender.emailTrackings.map((tracking) => (
                           <div
                             key={tracking.id}
                             className="bg-white border border-gray-200 rounded-lg p-4"
@@ -488,8 +550,10 @@ export default function RecipientTrackingDashboard() {
                 )}
               </div>
             );
-          })
-        )}
+          })}
+          </>
+        );
+        })()}
       </div>
     </div>
   );
