@@ -1,11 +1,25 @@
 import { prisma } from './prisma';
 
 export class ForwardingRuleService {
-  // Get forwarding rule for a sender
-  static async getRuleBySenderId(senderId: string, userId: string) {
-    return prisma.forwardingRule.findFirst({
+  // Get forwarding rules for a sender (can be multiple)
+  static async getRulesBySenderId(senderId: string, userId: string) {
+    return prisma.forwardingRule.findMany({
       where: {
         senderId,
+        userId,
+      },
+      include: {
+        sender: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Get a single forwarding rule by ID
+  static async getRuleById(id: string, userId: string) {
+    return prisma.forwardingRule.findFirst({
+      where: {
+        id,
         userId,
       },
       include: {
@@ -25,24 +39,15 @@ export class ForwardingRuleService {
     });
   }
 
-  // Create or update forwarding rule
-  static async upsertRule(
+  // Create a new forwarding rule (allows multiple rules per sender)
+  static async createRule(
     senderId: string,
     userId: string,
     forwardToEmails: string,
     options: { isActive?: boolean; autoForward?: boolean; subjectFilter?: string } = {}
   ) {
-    return prisma.forwardingRule.upsert({
-      where: {
-        senderId,
-      },
-      update: {
-        forwardToEmails,
-        subjectFilter: options.subjectFilter !== undefined ? options.subjectFilter : undefined,
-        isActive: options.isActive !== undefined ? options.isActive : true,
-        autoForward: options.autoForward !== undefined ? options.autoForward : true,
-      },
-      create: {
+    return prisma.forwardingRule.create({
+      data: {
         senderId,
         userId,
         forwardToEmails,
@@ -53,8 +58,38 @@ export class ForwardingRuleService {
     });
   }
 
-  // Delete forwarding rule
-  static async deleteRule(senderId: string, userId: string) {
+  // Update an existing forwarding rule by ID
+  static async updateRule(
+    id: string,
+    userId: string,
+    data: {
+      forwardToEmails?: string;
+      subjectFilter?: string | null;
+      isActive?: boolean;
+      autoForward?: boolean;
+    }
+  ) {
+    return prisma.forwardingRule.update({
+      where: {
+        id,
+        userId, // Ensure user owns this rule
+      },
+      data,
+    });
+  }
+
+  // Delete forwarding rule by ID
+  static async deleteRule(id: string, userId: string) {
+    return prisma.forwardingRule.delete({
+      where: {
+        id,
+        userId, // Ensure user owns this rule
+      },
+    });
+  }
+
+  // Delete all forwarding rules for a sender
+  static async deleteRulesBySenderId(senderId: string, userId: string) {
     return prisma.forwardingRule.deleteMany({
       where: {
         senderId,

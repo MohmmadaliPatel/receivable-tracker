@@ -233,48 +233,54 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
               const { ForwardingRuleService } = await import('./forwarding-rule-service');
               const { EmailForwardService } = await import('./email-forward-service');
               
-              const rule = await ForwardingRuleService.getRuleBySenderId(senderId, userId);
+              const rules = await ForwardingRuleService.getRulesBySenderId(senderId, userId);
               
-              if (rule && rule.isActive && rule.autoForward && rule.forwardToEmails) {
-                // Check subject filter if provided (partial match, case-insensitive)
-                let shouldForward = true;
-                if (rule.subjectFilter && rule.subjectFilter.trim()) {
-                  const emailSubject = email.subject || '';
-                  const subjectFilter = rule.subjectFilter.trim().toLowerCase();
-                  shouldForward = emailSubject.toLowerCase().includes(subjectFilter);
-                  
-                  console.log(`🔍 [Auto-Forward] Subject filter check:`, {
-                    emailSubject: emailSubject,
-                    subjectFilter: rule.subjectFilter,
-                    matches: shouldForward,
-                  });
-                }
-                
-                if (shouldForward) {
-                  const forwardToArray = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
-                  
-                  if (forwardToArray.length > 0) {
-                    console.log(`📤 [Auto-Forward] Forwarding email "${email.subject}" to:`, forwardToArray);
-                    const forwardResult = await EmailForwardService.forwardEmail(config, {
-                      originalMessageId: email.id,
-                      forwardTo: forwardToArray,
-                      includeOriginalBody: true,
+              // Check all active rules for this sender
+              for (const rule of rules) {
+                if (rule.isActive && rule.autoForward && rule.forwardToEmails) {
+                  // Check subject filter if provided (partial match, case-insensitive)
+                  let shouldForward = true;
+                  if (rule.subjectFilter && rule.subjectFilter.trim()) {
+                    const emailSubject = email.subject || '';
+                    const subjectFilter = rule.subjectFilter.trim().toLowerCase();
+                    shouldForward = emailSubject.toLowerCase().includes(subjectFilter);
+                    
+                    console.log(`🔍 [Auto-Forward] Subject filter check:`, {
+                      emailSubject: emailSubject,
+                      subjectFilter: rule.subjectFilter,
+                      matches: shouldForward,
                     });
-                    
-                    console.log(`📝 [Auto-Forward] Forward result messageId:`, forwardResult.messageId);
-                    
-                    await this.markAsForwarded(tracked.id, rule.forwardToEmails, forwardResult.messageId, true);
-                    console.log(`✅ [Auto-Forward] Email forwarded successfully with messageId: ${forwardResult.messageId}`);
-                    
-                    // Check for replies after forwarding (with a delay to allow email to be sent)
-                    if (forwardResult.messageId && forwardResult.messageId !== 'forwarded') {
-                      setTimeout(async () => {
-                        await this.checkForReplies(tracked.id, config, forwardResult.messageId);
-                      }, 5000); // Wait 5 seconds before checking for replies
-                    }
                   }
-                } else {
-                  console.log(`⏭️  [Auto-Forward] Email skipped - subject filter did not match`);
+                  
+                  if (shouldForward) {
+                    const forwardToArray = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
+                    
+                    if (forwardToArray.length > 0) {
+                      console.log(`📤 [Auto-Forward] Forwarding email "${email.subject}" to:`, forwardToArray);
+                      const forwardResult = await EmailForwardService.forwardEmail(config, {
+                        originalMessageId: email.id,
+                        forwardTo: forwardToArray,
+                        includeOriginalBody: true,
+                      });
+                      
+                      console.log(`📝 [Auto-Forward] Forward result messageId:`, forwardResult.messageId);
+                      
+                      await this.markAsForwarded(tracked.id, rule.forwardToEmails, forwardResult.messageId, true);
+                      console.log(`✅ [Auto-Forward] Email forwarded successfully with messageId: ${forwardResult.messageId}`);
+                      
+                      // Check for replies after forwarding (with a delay to allow email to be sent)
+                      if (forwardResult.messageId && forwardResult.messageId !== 'forwarded') {
+                        setTimeout(async () => {
+                          await this.checkForReplies(tracked.id, config, forwardResult.messageId);
+                        }, 5000); // Wait 5 seconds before checking for replies
+                      }
+                      
+                      // Break after first matching rule to avoid forwarding multiple times
+                      break;
+                    }
+                  } else {
+                    console.log(`⏭️  [Auto-Forward] Email skipped - subject filter did not match`);
+                  }
                 }
               }
             } catch (forwardError) {

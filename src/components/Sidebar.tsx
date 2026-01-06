@@ -25,14 +25,14 @@ export default function Sidebar({ user }: SidebarProps) {
       icon: '👥',
     },
     {
-      name: 'Forwarding Rules',
-      href: '/forwarding-rules',
-      icon: '📧',
-    },
-    {
       name: 'Forwarders',
       href: '/forwarders',
       icon: '📤',
+    },
+    {
+      name: 'Forwarding Rules',
+      href: '/forwarding-rules',
+      icon: '📧',
     },
     {
       name: 'Forwarded Emails',
