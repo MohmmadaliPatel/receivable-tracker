@@ -21,7 +21,6 @@ logs
 # database
 /prisma/dev.db
 prisma/dev
-dev.db
 prisma/dev.db
 # production
 /build
