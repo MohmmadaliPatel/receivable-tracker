@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rule = await ForwardingRuleService.upsertRule(
+    const rule = await ForwardingRuleService.createRule(
       senderId,
       user.userId,
       forwardToEmails,
