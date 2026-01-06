@@ -31,6 +31,20 @@
 ::
 ::
 ::978f952a14a936cc963da21a135fa983
+@REM @echo off
+@REM cd /d "D:\Projects\taxteck\email-auto"
+@REM npm run start
+
 @echo off
-cd /d "C:\Program Files\Notice tracker"
-npm run start
+cd /d "%~dp0"
+
+echo ===============================
+echo Starting EMAIL-AUTO Server
+echo ===============================
+
+set NODE_ENV=production
+set PORT=3000
+
+npm start
+
+pause
