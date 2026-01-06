@@ -83,7 +83,7 @@ model Sender {
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailTrackings EmailTracking[]
-  forwardingRule ForwardingRule?
+  forwardingRules ForwardingRule[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -184,7 +184,6 @@ model ForwardingRule {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([senderId]) // One rule per sender
   @@map("forwarding_rules")
 }
 

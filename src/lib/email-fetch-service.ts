@@ -229,8 +229,8 @@ export class EmailFetchService {
           });
         });
         console.log('📊 [Email Fetch] Unique recipient addresses found:', Array.from(allRecipientAddresses));
-        console.log('🔍 [Email Fetch] Looking for recipient:', recipientEmail.toLowerCase());
-        console.log('🔍 [Email Fetch] Match found?', allRecipientAddresses.has(recipientEmail.toLowerCase()));
+        console.log('🔍 [Email Fetch] Looking for sender:', senderEmail.toLowerCase());
+        console.log('🔍 [Email Fetch] Match found?', allRecipientAddresses.has(senderEmail.toLowerCase()));
       } else {
         console.warn('⚠️  [Email Fetch] No emails were returned from the API!');
         console.warn('⚠️  [Email Fetch] This could mean:');

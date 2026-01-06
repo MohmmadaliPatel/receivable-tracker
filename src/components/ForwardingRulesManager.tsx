@@ -104,8 +104,13 @@ export default function ForwardingRulesManager() {
     }
 
     try {
-      const response = await fetch('/api/forwarding-rules', {
-        method: 'POST',
+      const url = editingRule 
+        ? `/api/forwarding-rules/${editingRule.id}`
+        : '/api/forwarding-rules';
+      const method = editingRule ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
@@ -160,13 +165,13 @@ export default function ForwardingRulesManager() {
     setForwardingConfigs(updated);
   };
 
-  const handleDelete = async (senderId: string) => {
+  const handleDelete = async (ruleId: string) => {
     if (!confirm('Are you sure you want to delete this forwarding rule?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/forwarding-rules/${senderId}`, {
+      const response = await fetch(`/api/forwarding-rules/${ruleId}`, {
         method: 'DELETE',
       });
 
@@ -498,7 +503,7 @@ export default function ForwardingRulesManager() {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(rule.senderId)}
+                    onClick={() => handleDelete(rule.id)}
                     className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
                   >
                     Delete

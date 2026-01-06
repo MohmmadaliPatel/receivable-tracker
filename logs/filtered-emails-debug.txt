@@ -37754,3 +37754,2039 @@ Total non-matching emails: 97
   }
 ]
 
+================= 2026-01-06T06:41:21.412Z =================
+Sender: darshan.patel@roblinx.com
+Total non-matching emails: 94
+[
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSncAAA=",
+    "subject": "TDS Payment Dec 25_Vega Power IDFC",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T06:30:01Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnbAAA=",
+    "subject": "TDS Payment Dec 25_Vega Power ICICI",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T06:28:42Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnaAAA=",
+    "subject": "RE: TDS Payment Dec-25 (Additional Liability)",
+    "from": {
+      "emailAddress": {
+        "name": "Viren Shah",
+        "address": "viren.shah@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Korgaonkar D",
+          "address": "korgaonkar.d@hsdr.in"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Abhilash Goel",
+          "address": "abhilash.goel@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 2,
+    "receivedDateTime": "2026-01-06T06:26:44Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnZAAA=",
+    "subject": "RE: TDS Payment Dec 25_Matahari DBS",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T06:25:54Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnYAAA=",
+    "subject": "Re: TDS payment Approval Dec-25_Vega Power",
+    "from": {
+      "emailAddress": {
+        "name": "Jagdeep Dasani",
+        "address": "jagdeep.dasani@infradebt.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Devank Mavlankar",
+          "address": "devank.mavlankar@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T06:23:04Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnXAAA=",
+    "subject": "Re: TDS Payment Dec-25 (Additional Liability)",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Korgaonkar D",
+          "address": "korgaonkar.d@hsdr.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T06:04:40Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnWAAA=",
+    "subject": "TDS Payment Dec 25_Mirage",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:52:57Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnVAAA=",
+    "subject": "Re: TDS Payment Dec-25 (Additional Liability)",
+    "from": {
+      "emailAddress": {
+        "name": "Nikhil Kankaria",
+        "address": "nikhil.kankaria@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Korgaonkar D",
+          "address": "korgaonkar.d@hsdr.in"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Abhilash Goel",
+          "address": "abhilash.goel@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-06T05:52:05Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnUAAA=",
+    "subject": "TDS Payment Dec 25_Mercury",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:48:38Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnTAAA=",
+    "subject": "TDS Payment Dec 25_Kratos",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:46:12Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnSAAA=",
+    "subject": "TDS Payment Dec 25_Kas",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:44:16Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnRAAA=",
+    "subject": "TDS Payment Dec 25_Kaze",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:42:10Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnQAAA=",
+    "subject": "Fw: URGENT - Password Expiry Reminder",
+    "from": {
+      "emailAddress": {
+        "name": "Mayur Sonani",
+        "address": "Mayur.Sonani@setindia.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Hardik Savla",
+          "address": "hardiksavla@hsdr.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:39:12Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnPAAA=",
+    "subject": "TDS Payment Dec 25_Light Power",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:37:39Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnOAAA=",
+    "subject": "TDS Payment Dec 25_Hyperion",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:35:18Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnNAAA=",
+    "subject": "TDS Payment Dec 25_Hybrid Power",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:31:02Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnMAAA=",
+    "subject": "TDS Payment Dec 25_Vega IDFC",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:22:23Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnKAAA=",
+    "subject": "RE: TDS payment Approval Dec-25_Vega Power ",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jagdeep.dasani@infradebt.in",
+          "address": "jagdeep.dasani@infradebt.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:19:27Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnJAAA=",
+    "subject": "TDS Payment Dec 25_Rudra Federal",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:13:45Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnIAAA=",
+    "subject": "TDS Payment Dec 25_Rudra",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:10:27Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnHAAA=",
+    "subject": "TDS Payment Dec 25_Power 4",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:07:26Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnGAAA=",
+    "subject": "TDS Payment Dec 25_Matahari DBS",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:03:01Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnFAAA=",
+    "subject": "TDS Payment Dec 25_Matahari IDFC",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T05:01:34Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnEAAA=",
+    "subject": "TDS Payment Dec 25_Clean max envio energy solutons pvt ltd (babara)_Infradebt",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:56:39Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnDAAA=",
+    "subject": "TDS Payment Dec 25_Clean max envio energy solutons pvt ltd (CMES   - FARM)_SI",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:53:13Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnCAAA=",
+    "subject": "TDS Payment Dec 25_Clean max envio energy solutons pvt ltd (CMES KALWAD tccl )",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:49:45Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnBAAA=",
+    "subject": "TDS Payment Dec 25_Deneb ICICI",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:44:29Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSnAAAA=",
+    "subject": "TDS Payment Dec 25_Deneb IDFC",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:42:58Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm-AAA=",
+    "subject": "TDS Payment Dec 25_Charge LLP Federal",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:31:20Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm_AAA=",
+    "subject": "TDS Payment Dec 25_Charge LLP IDFC",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:30:25Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm9AAA=",
+    "subject": "TDS Payment Dec 25_Astria",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:28:10Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm8AAA=",
+    "subject": "TDS Payment Dec 25_Cogen",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:23:29Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm7AAA=",
+    "subject": "TDS Payment Dec 25_Anchorage",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:17:12Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm6AAA=",
+    "subject": "TDS Payment Dec 25_Celestial",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:15:17Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm5AAA=",
+    "subject": "TDS Payment Dec 25_Sapphire",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:11:30Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm4AAA=",
+    "subject": "TDS Payment Dec 25_Fragma",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:08:27Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm3AAA=",
+    "subject": "TDS Payment Dec 25_Bial",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:05:08Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm2AAA=",
+    "subject": "TDS Payment Dec 25_Bhoomi",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T04:02:40Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm1AAA=",
+    "subject": "TDS Payment Dec 25_Beta",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T03:59:53Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO9uSm0AAA=",
+    "subject": "TDS Payment Dec 25_Clean max envio energy solutons pvt ltd (CMES  - ROOFTOP)",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T03:56:00Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO9uRIKAAA=",
+    "subject": "Reminder",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapati@roblinx.com",
+          "address": "jitendra.prajapati@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T03:02:45Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO9uRIJAAA=",
+    "subject": "Reminder",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapati@roblinx.com",
+          "address": "jitendra.prajapati@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T02:59:12Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO9uRIIAAA=",
+    "subject": "Reminder",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapati@roblinx.com",
+          "address": "jitendra.prajapati@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T02:58:32Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO9uRIHAAA=",
+    "subject": "Reminder",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapati@roblinx.com",
+          "address": "jitendra.prajapati@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T02:56:27Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO9uRIGAAA=",
+    "subject": "Reminder",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapati@roblinx.com",
+          "address": "jitendra.prajapati@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-06T02:44:50Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ9AAA=",
+    "subject": "Re: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Sushant Nagre",
+        "address": "sushant.nagre@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T17:27:46Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ8AAA=",
+    "subject": "RE: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Viren Shah",
+        "address": "viren.shah@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Sushant Nagre",
+          "address": "sushant.nagre@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T17:12:06Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ7AAA=",
+    "subject": "Invoice for services rendred.",
+    "from": {
+      "emailAddress": {
+        "name": "Vrushali Joshi",
+        "address": "vrushalijoshi@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "monil.shah@thermofisher.com",
+          "address": "monil.shah@thermofisher.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T15:20:05Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO57cgVAAA=",
+    "subject": "Fwd: Test Auto email 2",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapati@roblinx.com",
+          "address": "jitendra.prajapati@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T13:44:04Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ5AAA=",
+    "subject": "Undeliverable: Fwd: Test",
+    "from": {
+      "emailAddress": {
+        "name": "Microsoft Outlook",
+        "address": "MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e@rk-advisors.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapti@roblinx.com",
+          "address": "jitendra.prajapti@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T13:37:28Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEJAADOfOcR_yHGSL_BGTNOLBLKAAO57cgUAAA=",
+    "subject": "Fwd: Test",
+    "from": {
+      "emailAddress": {
+        "name": "Hardik Savla",
+        "address": "hardiksavla@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "jitendra.prajapti@roblinx.com",
+          "address": "jitendra.prajapti@roblinx.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T13:37:24Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ4AAA=",
+    "subject": "Blink Commerce Private Limited : Purchase Order",
+    "from": {
+      "emailAddress": {
+        "name": "Kissflow",
+        "address": "admin@zomato.kissflow.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Hardik Savla",
+          "address": "hardiksavla@hsdr.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T13:37:17Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ2AAA=",
+    "subject": "RE: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Sushant Nagre",
+        "address": "sushant.nagre@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T13:27:57Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ1AAA=",
+    "subject": "Re: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Sushant Nagre",
+          "address": "sushant.nagre@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T13:27:27Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJ0AAA=",
+    "subject": "RE: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Sushant Nagre",
+        "address": "sushant.nagre@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 2,
+    "receivedDateTime": "2026-01-05T13:03:03Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJzAAA=",
+    "subject": "Fw: TDS Payment Dec-25 (Additional Liability)",
+    "from": {
+      "emailAddress": {
+        "name": "Korgaonkar D",
+        "address": "korgaonkar.d@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Abhilash Goel",
+          "address": "abhilash.goel@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 2,
+    "receivedDateTime": "2026-01-05T13:02:55Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJyAAA=",
+    "subject": "Re: TRA TDS Payments - Dec 2025 (Lot 2)",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Korgaonkar D",
+          "address": "korgaonkar.d@hsdr.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T13:01:39Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJxAAA=",
+    "subject": "RE: TRA TDS Payments - Dec 2025 (Lot 2)",
+    "from": {
+      "emailAddress": {
+        "name": "Sushant Nagre",
+        "address": "sushant.nagre@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T13:00:46Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJwAAA=",
+    "subject": "RE: TRA TDS Payments - Dec 2025 (Lot 2)",
+    "from": {
+      "emailAddress": {
+        "name": "Viren Shah",
+        "address": "viren.shah@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Sushant Nagre",
+          "address": "sushant.nagre@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T12:59:55Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJvAAA=",
+    "subject": "RE: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Nikhil Kankaria",
+        "address": "nikhil.kankaria@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:59:38Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJuAAA=",
+    "subject": "Fw: TDS Payment Dec 25_Godavari",
+    "from": {
+      "emailAddress": {
+        "name": "Treasury",
+        "address": "treasury@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Escrow Services",
+          "address": "escrow.services@idfcfirstbank.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:59:13Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJtAAA=",
+    "subject": "Re: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Nikhil Kankaria",
+          "address": "nikhil.kankaria@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:58:56Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJsAAA=",
+    "subject": "TDS Payment Dec 25_Serengeti",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:56:19Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJrAAA=",
+    "subject": "FW: TDS Payment Dec-25 (Additional Liability)",
+    "from": {
+      "emailAddress": {
+        "name": "Shailendra Utekar",
+        "address": "shailendra.utekar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Korgaonkar D",
+          "address": "korgaonkar.d@hsdr.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:54:33Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJqAAA=",
+    "subject": "TDS Payment Dec 25_Scorpius Power LLP",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:53:54Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJpAAA=",
+    "subject": "Re: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:53:40Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJoAAA=",
+    "subject": "Re: Online TDS Payments - Dec 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Korgaonkar D",
+          "address": "korgaonkar.d@hsdr.in"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Abhilash Goel",
+          "address": "abhilash.goel@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T12:45:03Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJnAAA=",
+    "subject": "TDS Payment Dec 25_Matahari_DBS",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:42:17Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJmAAA=",
+    "subject": "Re: TRA TDS Payments - Dec 2025 (Lot 2)",
+    "from": {
+      "emailAddress": {
+        "name": "Nikunj Ghodawat",
+        "address": "nikunj.ghodawat@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Sushant Nagre",
+          "address": "sushant.nagre@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T12:38:50Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJlAAA=",
+    "subject": "TDS Payment Dec 25_Godavari",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:36:04Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJkAAA=",
+    "subject": "TDS Payment Dec-25 (Additional Liability)",
+    "from": {
+      "emailAddress": {
+        "name": "Korgaonkar D",
+        "address": "korgaonkar.d@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Shailendra Utekar",
+          "address": "shailendra.utekar@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:31:52Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJjAAA=",
+    "subject": "RE: TRA TDS Payments - Dec 2025 (Lot 2)",
+    "from": {
+      "emailAddress": {
+        "name": "Sushant Nagre",
+        "address": "sushant.nagre@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Deepesh Salunkhe",
+          "address": "deepesh.s@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T12:31:28Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJiAAA=",
+    "subject": "RE: TDS Payment_Dec 25_Anchorage",
+    "from": {
+      "emailAddress": {
+        "name": "Jeet Shah",
+        "address": "jeet.shah@aseeminfra.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Devank Mavlankar",
+          "address": "devank.mavlankar@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:24:47Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJhAAA=",
+    "subject": "TDS Payment Dec 25_Zeus",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:21:38Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJgAAA=",
+    "subject": "Re: TRA TDS Payments - Dec 2025 (Lot 2)",
+    "from": {
+      "emailAddress": {
+        "name": "Deepesh Salunkhe",
+        "address": "deepesh.s@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Nikunj Ghodawat",
+          "address": "nikunj.ghodawat@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Sushant Nagre",
+          "address": "sushant.nagre@cleanmax.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 3,
+    "receivedDateTime": "2026-01-05T12:20:28Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJfAAA=",
+    "subject": "TDS Payment Dec 25_Zion",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:19:35Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJeAAA=",
+    "subject": "TDS Payment Dec 25_Vent Power",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:17:14Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJdAAA=",
+    "subject": "TDS Payment Dec 25_Thennal",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:14:54Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJcAAA=",
+    "subject": "TDS Payment Dec 25_Theia",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:12:54Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJbAAA=",
+    "subject": "TDS Payment Dec 25_Thanos",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:10:40Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJaAAA=",
+    "subject": "TDS Payment Dec 25_Terra",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:07:58Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJZAAA=",
+    "subject": "TDS Payment Dec 25_Tav",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:05:07Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJYAAA=",
+    "subject": "TDS Payment Dec 25_Tauras",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:03:03Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJXAAA=",
+    "subject": "RE: Demo on 15CA CB tool",
+    "from": {
+      "emailAddress": {
+        "name": "Tushar Sakharkar",
+        "address": "tushar.sakharkar@navneet.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Hardik Savla",
+          "address": "hardiksavla@hsdr.in"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:02:10Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJWAAA=",
+    "subject": "TDS Payment Dec 25_Taiyo",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T12:00:28Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJVAAA=",
+    "subject": "FW: TDS Payment Dec 25_Celeste",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Treasury",
+          "address": "treasury@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:58:47Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJUAAA=",
+    "subject": "Fw: TDS Payment Dec 25_Arcadia",
+    "from": {
+      "emailAddress": {
+        "name": "Treasury",
+        "address": "treasury@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Escrow Services",
+          "address": "escrow.services@idfcfirstbank.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:57:17Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJTAAA=",
+    "subject": "TDS Payment Dec 25_Scorpius Pvt ",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:53:39Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJSAAA=",
+    "subject": "Fw: TDS Payment Dec 25_Decimus",
+    "from": {
+      "emailAddress": {
+        "name": "Treasury",
+        "address": "treasury@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Escrow Services",
+          "address": "escrow.services@idfcfirstbank.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:53:11Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJRAAA=",
+    "subject": "TDS Payment Dec 25_Saura",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:50:56Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJQAAA=",
+    "subject": "Re: Blinkit | Credit Card 15CBs | October & November 2025",
+    "from": {
+      "emailAddress": {
+        "name": "Accounts  RK Advisors",
+        "address": "accounts@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Sunakshi Agrawal",
+          "address": "sunakshi.agrawal@zomato.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:49:16Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJPAAA=",
+    "subject": "TDS Payment Dec 25_Prithvi",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:47:48Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJOAAA=",
+    "subject": "TDS Payment Dec 25_Power Project",
+    "from": {
+      "emailAddress": {
+        "name": "Devank Mavlankar",
+        "address": "devank.mavlankar@cleanmax.com"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Viren Shah",
+          "address": "viren.shah@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:44:19Z"
+  },
+  {
+    "id": "AAMkAGU4NzE5ZGJiLWU2YjUtNDc1Mi04ZDM3LWRiODYwYmRjMTI3OABGAAAAAAAPndyqZcF2SrJWgSP7di5_BwDOfOcR_yHGSL_BGTNOLBLKAAAAAAEMAADOfOcR_yHGSL_BGTNOLBLKAAO57ZJNAAA=",
+    "subject": "Signed Letters_Celestial",
+    "from": {
+      "emailAddress": {
+        "name": "Korgaonkar D",
+        "address": "korgaonkar.d@hsdr.in"
+      }
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "name": "Shailendra Utekar",
+          "address": "shailendra.utekar@cleanmax.com"
+        }
+      }
+    ],
+    "toRecipientsCount": 1,
+    "receivedDateTime": "2026-01-05T11:43:52Z"
+  }
+]
+
