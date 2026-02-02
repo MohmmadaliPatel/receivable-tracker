@@ -21,3 +21,4 @@ UPDATE forwarding_rules SET senderId = recipientId;
 -- Note: SQLite doesn't support DROP COLUMN, so the old recipientId columns will remain
 -- but won't be used. You can manually remove them later if needed.
 
+

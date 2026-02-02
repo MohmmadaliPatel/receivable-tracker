@@ -252,49 +252,132 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
               
               const rules = await ForwardingRuleService.getRulesBySenderId(senderId, userId);
               
-              // Collect all forward-to emails from matching rules (to forward to all at once)
+              // Collect all forward-to emails from matching rules
+              // Logic:
+              // - Rules WITH subject filter: only match if email subject contains the filter
+              // - Rules WITHOUT subject filter: only match if email doesn't match ANY subject filter rule
               const allForwardToEmails = new Set<string>();
               let shouldForward = false;
               
-              // Check all active rules for this sender
+              // Get email subject (handle null/undefined)
+              const emailSubject = email.subject ? String(email.subject).trim() : '';
+              const emailSubjectLower = emailSubject.toLowerCase();
+              
+              console.log(`📧 [Auto-Forward] Processing email:`, {
+                id: email.id,
+                subject: email.subject,
+                emailSubject: emailSubject || '(No Subject)',
+                receivedDateTime: email.receivedDateTime,
+              });
+              console.log(`📋 [Auto-Forward] Found ${rules.length} rules for sender ${senderId}`);
+              
+              // Separate rules into two groups: with and without subject filters
+              const rulesWithSubjectFilter: typeof rules = [];
+              const rulesWithoutSubjectFilter: typeof rules = [];
+              
               for (const rule of rules) {
                 if (rule.isActive && rule.autoForward && rule.forwardToEmails) {
+                  const hasSubjectFilter = rule.subjectFilter && rule.subjectFilter.trim().length > 0;
+                  if (hasSubjectFilter) {
+                    rulesWithSubjectFilter.push(rule);
+                  } else {
+                    rulesWithoutSubjectFilter.push(rule);
+                  }
+                }
+              }
+              
+              console.log(`📊 [Auto-Forward] Rules breakdown: ${rulesWithSubjectFilter.length} with subject filter, ${rulesWithoutSubjectFilter.length} without subject filter`);
+              
+              // CRITICAL: Check rules WITH subject filter first
+              // If email matches ANY subject filter rule, ONLY forward to those rules (exclude rules without filters)
+              let matchedSubjectFilterRule = false;
+              
+              for (const rule of rulesWithSubjectFilter) {
+                // CRITICAL: Only forward emails received AFTER the rule was created
+                const ruleCreatedAt = new Date(rule.createdAt);
+                const emailReceivedAt = new Date(email.receivedDateTime);
+                
+                if (emailReceivedAt < ruleCreatedAt) {
+                  console.log(`⏭️  [Auto-Forward] Rule ${rule.id}: Email received before rule was created, skipping`);
+                  continue;
+                }
+                
+                // Check if email subject matches this rule's filter
+                const subjectFilter = rule.subjectFilter!.trim().toLowerCase();
+                const matchesFilter = emailSubjectLower.includes(subjectFilter);
+                
+                console.log(`🔍 [Auto-Forward] Rule ${rule.id} with subject filter "${rule.subjectFilter}":`, {
+                  emailSubject: emailSubject || '(No Subject)',
+                  emailSubjectLower: emailSubjectLower,
+                  subjectFilter: subjectFilter,
+                  includes: emailSubjectLower.includes(subjectFilter),
+                  matches: matchesFilter,
+                });
+                
+                if (matchesFilter) {
+                  matchedSubjectFilterRule = true;
+                  shouldForward = true;
+                  // Add forward-to emails from this matching rule ONLY
+                  const forwardToArray = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
+                  forwardToArray.forEach(emailAddr => allForwardToEmails.add(emailAddr));
+                  console.log(`✅ [Auto-Forward] Rule ${rule.id} MATCHED - adding forwarders:`, forwardToArray);
+                }
+              }
+              
+              // CRITICAL: Only check rules WITHOUT subject filter if email did NOT match ANY subject filter rule
+              // This ensures emails matching subject filters ONLY go to those rules, not to catch-all rules
+              if (matchedSubjectFilterRule) {
+                console.log(`🚫 [Auto-Forward] Email matched subject filter rule(s) - EXCLUDING rules without subject filter`);
+                console.log(`📤 [Auto-Forward] Will forward ONLY to subject filter rule forwarders:`, Array.from(allForwardToEmails));
+              } else {
+                console.log(`📬 [Auto-Forward] Email did NOT match any subject filter rule - checking rules without subject filter`);
+                for (const rule of rulesWithoutSubjectFilter) {
                   // CRITICAL: Only forward emails received AFTER the rule was created
-                  // This prevents forwarding old emails when a new rule is created
                   const ruleCreatedAt = new Date(rule.createdAt);
                   const emailReceivedAt = new Date(email.receivedDateTime);
                   
                   if (emailReceivedAt < ruleCreatedAt) {
-                    console.log(`⏭️  [Auto-Forward] Email received before rule was created (${emailReceivedAt.toISOString()} < ${ruleCreatedAt.toISOString()}), skipping`);
-                    continue; // Skip this rule, try next one
+                    console.log(`⏭️  [Auto-Forward] Rule ${rule.id}: Email received before rule was created, skipping`);
+                    continue;
                   }
                   
-                  // Check subject filter if provided (partial match, case-insensitive)
-                  let ruleMatches = true;
-                  if (rule.subjectFilter && rule.subjectFilter.trim()) {
-                    const emailSubject = email.subject || '';
-                    const subjectFilter = rule.subjectFilter.trim().toLowerCase();
-                    ruleMatches = emailSubject.toLowerCase().includes(subjectFilter);
-                    
-                    console.log(`🔍 [Auto-Forward] Subject filter check:`, {
-                      emailSubject: emailSubject,
-                      subjectFilter: rule.subjectFilter,
-                      matches: ruleMatches,
-                    });
-                  }
-                  
-                  if (ruleMatches) {
-                    shouldForward = true;
-                    // Add all forward-to emails from this rule
+                  // Rule without subject filter matches emails that didn't match any subject filters
+                  shouldForward = true;
+                  const forwardToArray = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
+                  forwardToArray.forEach(emailAddr => allForwardToEmails.add(emailAddr));
+                  console.log(`✅ [Auto-Forward] Rule ${rule.id} without subject filter matched - adding forwarders:`, forwardToArray);
+                }
+                console.log(`📤 [Auto-Forward] Will forward to catch-all rule forwarders:`, Array.from(allForwardToEmails));
+              }
+              
+              // Final validation: If subject filter rule matched, ensure we're NOT forwarding to rules without filters
+              if (matchedSubjectFilterRule && allForwardToEmails.size > 0) {
+                // Get forwarders from rules without subject filters to verify they're not included
+                const catchAllForwarders = new Set<string>();
+                for (const rule of rulesWithoutSubjectFilter) {
+                  if (rule.isActive && rule.autoForward && rule.forwardToEmails) {
                     const forwardToArray = rule.forwardToEmails.split(',').map(e => e.trim()).filter(e => e);
-                    forwardToArray.forEach(email => allForwardToEmails.add(email));
+                    forwardToArray.forEach(emailAddr => catchAllForwarders.add(emailAddr));
                   }
                 }
+                
+                // Remove any catch-all forwarders that might have been accidentally added
+                catchAllForwarders.forEach(emailAddr => {
+                  if (allForwardToEmails.has(emailAddr)) {
+                    console.log(`⚠️  [Auto-Forward] REMOVING catch-all forwarder "${emailAddr}" - email matched subject filter rule`);
+                    allForwardToEmails.delete(emailAddr);
+                  }
+                });
+                
+                console.log(`✅ [Auto-Forward] Final validation: Forwarding ONLY to subject filter forwarders:`, Array.from(allForwardToEmails));
               }
               
               // Forward to all collected emails at once (prevents duplicate sends)
               if (shouldForward && allForwardToEmails.size > 0) {
                 const forwardToArray = Array.from(allForwardToEmails);
+                
+                console.log(`📧 [Auto-Forward] Final forward list (${forwardToArray.length} recipients):`, forwardToArray);
+                console.log(`📊 [Auto-Forward] Matched subject filter: ${matchedSubjectFilterRule}`);
                 
                 // Double-check: Atomically mark as forwarding to prevent concurrent sends
                 const updateResult = await prisma.emailTracking.updateMany({

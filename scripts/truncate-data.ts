@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 async function truncateData() {
   try {
     console.log('🗑️  [Truncate] Starting data truncation...');
-    console.log('⚠️  This will delete all data except email-configs and authentication records (users, sessions)');
+    console.log('⚠️  This will delete all data except authentication records (users, sessions)');
 
     // Delete in order to respect foreign key constraints
     // 1. Delete EmailReply first (depends on EmailTracking)
@@ -28,7 +28,11 @@ async function truncateData() {
     const deletedForwarders = await prisma.forwarder.deleteMany({});
     console.log(`✅ [Truncate] Deleted ${deletedForwarders.count} forwarders`);
 
-    // 6. Delete Email (standalone, no dependencies)
+    // 6. Delete EmailConfig (depends on User)
+    const deletedConfigs = await prisma.emailConfig.deleteMany({});
+    console.log(`✅ [Truncate] Deleted ${deletedConfigs.count} email configs`);
+
+    // 7. Delete Email (standalone, no dependencies)
     const deletedEmails = await prisma.email.deleteMany({});
     console.log(`✅ [Truncate] Deleted ${deletedEmails.count} emails`);
 
@@ -38,12 +42,13 @@ async function truncateData() {
       forwardingRules: deletedRules.count,
       senders: deletedSenders.count,
       forwarders: deletedForwarders.count,
+      emailConfigs: deletedConfigs.count,
       emails: deletedEmails.count,
     };
 
     console.log('✅ [Truncate] Data truncation completed!');
     console.log('📊 Summary:', summary);
-    console.log('✅ Email configs and authentication records (users, sessions) were preserved');
+    console.log('✅ Authentication records (users, sessions) were preserved');
   } catch (error: any) {
     console.error('❌ [Truncate] Error truncating data:', error);
     throw error;
@@ -57,4 +62,5 @@ truncateData()
     console.error('❌ Script failed:', error);
     process.exit(1);
   });
+
 

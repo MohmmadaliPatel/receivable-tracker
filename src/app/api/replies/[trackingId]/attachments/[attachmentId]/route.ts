@@ -71,8 +71,8 @@ export async function GET(
     const fileName = attachmentInfo?.name || 'attachment';
     const contentType = attachmentInfo?.contentType || 'application/octet-stream';
 
-    // Return the file
-    return new NextResponse(attachmentBuffer, {
+    // Return the file - convert Buffer to Uint8Array for NextResponse
+    return new NextResponse(new Uint8Array(attachmentBuffer), {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `attachment; filename="${fileName}"`,

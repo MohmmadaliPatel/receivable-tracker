@@ -132,7 +132,7 @@ export default function RecipientTrackingDashboard() {
 
       setSuccess('Email forwarded successfully!');
       setForwardForm(null);
-      fetchRecipients();
+      fetchSenders();
     } catch (err: any) {
       setError(err.message || 'Failed to forward email');
     } finally {
@@ -204,7 +204,7 @@ export default function RecipientTrackingDashboard() {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Search Recipients
+              Search Sender
             </label>
             <input
               type="text"
