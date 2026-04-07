@@ -46,6 +46,12 @@ async function getGraphClient(config: EmailConfig): Promise<Client> {
   });
 }
 
+export interface MailAttachment {
+  name: string;
+  contentBytes: string; // base64 encoded
+  contentType: string;
+}
+
 export interface SendMailOptions {
   to: string | string[];
   subject: string;
@@ -53,6 +59,8 @@ export interface SendMailOptions {
   htmlBody?: string;
   cc?: string | string[];
   bcc?: string | string[];
+  attachments?: MailAttachment[];
+  saveToSentItems?: boolean;
 }
 
 export class GraphMailService {
@@ -78,24 +86,36 @@ export class GraphMailService {
           : [{ emailAddress: { address: options.bcc } }]
         : undefined;
 
+      // Prepare file attachments for Graph API
+      const graphAttachments = options.attachments?.map((a) => ({
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: a.name,
+        contentType: a.contentType,
+        contentBytes: a.contentBytes,
+      }));
+
       // Prepare message
       const message: any = {
-        message: {
-          subject: options.subject,
-          body: {
-            contentType: options.htmlBody ? 'HTML' : 'Text',
-            content: options.htmlBody || options.body || '',
-          },
-          toRecipients,
-          ...(ccRecipients && { ccRecipients }),
-          ...(bccRecipients && { bccRecipients }),
+        subject: options.subject,
+        body: {
+          contentType: options.htmlBody ? 'HTML' : 'Text',
+          content: options.htmlBody || options.body || '',
         },
+        toRecipients,
+        ...(ccRecipients && { ccRecipients }),
+        ...(bccRecipients && { bccRecipients }),
+        ...(graphAttachments?.length && { attachments: graphAttachments }),
+      };
+
+      const payload: any = {
+        message,
+        saveToSentItems: options.saveToSentItems !== false, // default true
       };
 
       // Use the fromEmail as the sender (user must have permission to send as this address)
       const sendMailUrl = `/users/${config.fromEmail}/sendMail`;
 
-      const result = await client.api(sendMailUrl).post(message);
+      const result = await client.api(sendMailUrl).post(payload);
 
       return result;
     } catch (error) {
@@ -104,10 +124,29 @@ export class GraphMailService {
     }
   }
 
+  // Get access token (exported for use in other services)
+  static async getAccessToken(config: EmailConfig): Promise<string> {
+    const tokenUrl = `https://login.microsoftonline.com/${config.msTenantId}/oauth2/v2.0/token`;
+    const params = new URLSearchParams({
+      client_id: config.msClientId,
+      client_secret: config.msClientSecret,
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials',
+    });
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(`Token request failed: ${data.error_description || data.error}`);
+    return data.access_token;
+  }
+
   // Validate configuration by attempting to get a token
   static async validateConfig(config: EmailConfig): Promise<{ valid: boolean; error?: string }> {
     try {
-      await getAccessToken(config);
+      await GraphMailService.getAccessToken(config);
       return { valid: true };
     } catch (error: any) {
       return {

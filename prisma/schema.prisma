@@ -200,3 +200,69 @@ model Forwarder {
 
   @@map("forwarders")
 }
+
+model ConfirmationRecord {
+  id                   String    @id @default(cuid())
+  entityName           String
+  category             String    // "Bank Balances and FDs" | "Borrowings" | "Trade Receivables" | "Trade Payables" | "Other Receivables" | "Other Payables"
+  bankName             String?   // Bank Name / Confirming Party
+  accountNumber        String?   // Bank/Loan Account Number (editable for Bank Balances/FDs and Borrowings)
+  custId               String?   // Customer ID (editable for Bank Balances/FDs and Borrowings)
+  emailTo              String    // Comma-separated email TO addresses
+  emailCc              String?   // Comma-separated email CC addresses
+
+  // Status tracking
+  status               String    @default("not_sent") // not_sent | sent | followup_sent | response_received
+
+  // Sent email details
+  sentAt               DateTime?
+  sentMessageId        String?   // Graph API message ID of sent confirmation
+  sentEmailFilePath    String?   // Local file path of saved sent email HTML
+
+  // Follow-up details
+  followupSentAt       DateTime?
+  followupMessageId    String?
+  followupEmailFilePath String?
+
+  // Response details
+  responseReceivedAt      DateTime?
+  responseMessageId       String?
+  responseSubject         String?
+  responseBody            String?
+  responseHtmlBody        String?
+  responseFromEmail       String?
+  responseFromName        String?
+  responseEmailFilePath   String?  // Local file path of saved response HTML
+  responseHasAttachments  Boolean  @default(false)
+  responseAttachmentsJson String?  // JSON array: [{id, name, contentType, size}]
+
+  // Attachment (Authority Letter)
+  attachmentPath       String?   // Server path to uploaded attachment
+  attachmentName       String?   // Original filename
+
+  // Folder paths for navigating without app
+  emailsSentFolderPath    String?  // Relative folder path: emails/{Entity}/{Category}/Emails Sent/
+  responsesFolderPath     String?  // Relative folder path: emails/{Entity}/{Category}/Responses Received/
+
+  // Query/Remarks
+  remarks              String?
+
+  userId               String
+  emailConfigId        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@map("confirmation_records")
+}
+
+model AppSettings {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  autoReplyCheck            Boolean  @default(true)   // Automatically check for replies on cron
+  replyCheckIntervalMinutes Int      @default(30)      // How often to check for replies
+  emailSaveBasePath         String   @default("emails") // Base folder path for saving emails
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@map("app_settings")
+}

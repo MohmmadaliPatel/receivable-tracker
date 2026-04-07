@@ -3,6 +3,7 @@ import { EmailConfigService } from './email-config-service';
 import { SenderService } from './sender-service';
 import { EmailTrackingService } from './email-tracking-service';
 import { GraphMailService } from './graph-mail-service';
+import { checkRepliesForConfirmations, getOrCreateSettings } from './confirmation-service';
 
 interface CronJob {
   intervalId: NodeJS.Timeout | null;
@@ -153,6 +154,20 @@ class CronService {
       // Check and send reminder emails if enabled
       if (config.reminderEnabled) {
         await this.checkAndSendReminders(config, config.userId);
+      }
+
+      // Check for confirmation replies if autoReplyCheck is enabled
+      try {
+        const settings = await getOrCreateSettings(config.userId);
+        if (settings.autoReplyCheck) {
+          console.log(`🔍 [Cron] Checking confirmation replies for user ${config.userId}`);
+          const repliesFound = await checkRepliesForConfirmations(config.userId);
+          if (repliesFound > 0) {
+            console.log(`✅ [Cron] Found ${repliesFound} new confirmation replies`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [Cron] Error checking confirmation replies:`, error);
       }
 
       console.log(`✅ [Cron] Completed job for config ${configId}`);

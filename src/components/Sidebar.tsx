@@ -20,6 +20,11 @@ export default function Sidebar({ user }: SidebarProps) {
       icon: '📊',
     },
     {
+      name: 'Bulk Email',
+      href: '/bulk-email',
+      icon: '✉️',
+    },
+    {
       name: 'Senders',
       href: '/senders',
       icon: '👥',
@@ -43,6 +48,11 @@ export default function Sidebar({ user }: SidebarProps) {
       name: 'Email Configuration',
       href: '/email-config',
       icon: '⚙️',
+    },
+    {
+      name: 'Settings',
+      href: '/settings',
+      icon: '🔧',
     },
   ];
 
