@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,8 +33,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to home page
-      router.push('/');
+      router.push('/bulk-email');
       router.refresh();
     } catch (err) {
       setError('Network error. Please try again.');
@@ -45,10 +45,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-md w-full mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
+          <div className="flex justify-center mb-4">
+            <Image src="/logo.png" alt="Taxteck" width={180} height={48} priority />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-1 text-center">
             Email Auto Manager
           </h1>
-          <p className="text-gray-600 text-center mb-8">Sign in to continue</p>
+          <p className="text-gray-600 text-center mb-8 text-sm">Sign in to continue</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>

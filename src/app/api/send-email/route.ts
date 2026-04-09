@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
     // Get active config or specified config
     let config;
     if (configId) {
-      config = await EmailConfigService.getConfigById(configId, user.userId);
+      config = await EmailConfigService.getConfigById(configId);
     } else {
-      config = await EmailConfigService.getActiveConfig(user.userId);
+      config = await EmailConfigService.getActiveConfig();
     }
 
     if (!config) {

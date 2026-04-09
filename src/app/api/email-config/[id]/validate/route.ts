@@ -28,7 +28,7 @@ export async function POST(
     }
 
     const { id } = await params;
-    const config = await EmailConfigService.getConfigById(id, user.userId);
+    const config = await EmailConfigService.getConfigById(id);
 
     if (!config) {
       return NextResponse.json({ error: 'Configuration not found' }, { status: 404 });

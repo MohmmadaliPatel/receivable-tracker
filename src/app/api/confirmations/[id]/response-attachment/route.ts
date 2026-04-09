@@ -26,14 +26,14 @@ export async function GET(
   if (!attachmentId) return NextResponse.json({ error: 'attachmentId required' }, { status: 400 });
 
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (!record.responseMessageId) return NextResponse.json({ error: 'No response message recorded' }, { status: 404 });
 
   const config = record.emailConfigId
-    ? await EmailConfigService.getConfigById(record.emailConfigId, user.userId)
-    : await EmailConfigService.getActiveConfig(user.userId);
+    ? await EmailConfigService.getConfigById(record.emailConfigId)
+    : await EmailConfigService.getActiveConfig();
   if (!config) return NextResponse.json({ error: 'No email config' }, { status: 500 });
 
   try {

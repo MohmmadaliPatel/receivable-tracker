@@ -51,7 +51,7 @@ export async function GET(
     }
 
     // Get the email config
-    const config = await EmailConfigService.getActiveConfig(user.userId);
+    const config = await EmailConfigService.getActiveConfig();
     if (!config) {
       return NextResponse.json({ error: 'No active email configuration' }, { status: 404 });
     }

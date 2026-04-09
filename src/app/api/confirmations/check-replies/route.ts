@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const repliesFound = await checkRepliesForConfirmations(user.userId);
+  const repliesFound = await checkRepliesForConfirmations();
 
   return NextResponse.json({ success: true, repliesFound });
 }
@@ -26,6 +26,6 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const since = request.nextUrl.searchParams.get('since');
-  const result = await debugInboxScan(user.userId, since || undefined);
+  const result = await debugInboxScan(since || undefined);
   return NextResponse.json(result);
 }

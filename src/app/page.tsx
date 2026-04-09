@@ -17,7 +17,7 @@ export default async function Home() {
   return (
     <AuthGuard>
       <div className="flex min-h-screen bg-gray-50">
-        <Sidebar user={user || undefined} />
+        <Sidebar user={user ? { username: user.username, name: user.name, role: user.role } : undefined} />
         <div className="flex-1">
           <div className="p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>

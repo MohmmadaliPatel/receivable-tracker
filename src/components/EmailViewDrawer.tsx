@@ -9,6 +9,27 @@ interface AttachmentMeta {
   size: number;
 }
 
+interface FollowupEntry {
+  followupNumber: number;
+  sentAt: string;
+  subject: string;
+  filePath: string;
+  messageId: string | null;
+}
+
+interface ResponseEntry {
+  receivedAt: string;
+  messageId: string;
+  subject: string;
+  fromEmail: string;
+  fromName: string;
+  htmlBody: string | null;
+  body: string | null;
+  filePath: string;
+  hasAttachments: boolean;
+  attachmentsJson: string | null;
+}
+
 interface ConfirmationRecord {
   id: string;
   entityName: string;
@@ -21,6 +42,8 @@ interface ConfirmationRecord {
   status: string;
   sentAt?: string | null;
   followupSentAt?: string | null;
+  followupCount?: number;
+  followupsJson?: string | null;
   responseReceivedAt?: string | null;
   responseSubject?: string | null;
   responseFromEmail?: string | null;
@@ -29,6 +52,7 @@ interface ConfirmationRecord {
   responseHtmlBody?: string | null;
   responseHasAttachments?: boolean;
   responseAttachmentsJson?: string | null;
+  responsesJson?: string | null;
   sentEmailFilePath?: string | null;
   followupEmailFilePath?: string | null;
   responseEmailFilePath?: string | null;
@@ -43,11 +67,12 @@ interface EmailViewDrawerProps {
   onClose: () => void;
 }
 
-type EmailType = 'sent' | 'followup' | 'response';
+// Tab can be 'sent' | 'followup-N' (N=1,2,...) | 'response' | 'trail'
+type ActiveTab = 'sent' | `followup-${number}` | 'response' | 'trail';
 
-function defaultTabForRecord(record: ConfirmationRecord): EmailType {
-  if (record.responseEmailFilePath || record.responseHtmlBody || record.responseBody) return 'response';
-  if (record.followupEmailFilePath) return 'followup';
+function defaultTabForRecord(record: ConfirmationRecord): ActiveTab {
+  if (record.responseEmailFilePath || record.responseHtmlBody || record.responseBody) return 'trail';
+  if (record.followupEmailFilePath || (record.followupCount ?? 0) > 0) return 'trail';
   return 'sent';
 }
 
@@ -81,8 +106,33 @@ function fileIcon(contentType: string) {
 }
 
 export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProps) {
-  const [activeTab, setActiveTab] = useState<EmailType>(() => defaultTabForRecord(record));
+  const followups: FollowupEntry[] = (() => {
+    try { return JSON.parse(record.followupsJson ?? '[]'); } catch { return []; }
+  })();
+
+  const allResponses: ResponseEntry[] = (() => {
+    try { return JSON.parse(record.responsesJson ?? '[]'); } catch { return []; }
+  })();
+
+  // Fall back to single response fields if history list is empty
+  const responses: ResponseEntry[] = allResponses.length > 0
+    ? allResponses
+    : (record.responseReceivedAt ? [{
+        receivedAt: record.responseReceivedAt,
+        messageId: record.responseAttachmentsJson ? '' : '',
+        subject: record.responseSubject ?? '',
+        fromEmail: record.responseFromEmail ?? '',
+        fromName: record.responseFromName ?? '',
+        htmlBody: record.responseHtmlBody ?? null,
+        body: record.responseBody ?? null,
+        filePath: record.responseEmailFilePath ?? '',
+        hasAttachments: record.responseHasAttachments ?? false,
+        attachmentsJson: record.responseAttachmentsJson ?? null,
+      }] : []);
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => defaultTabForRecord(record));
   const [emailHtml, setEmailHtml] = useState<string | null>(null);
+  const [emailPdfUrl, setEmailPdfUrl] = useState<string | null>(null);
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -100,35 +150,93 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
     }
   })();
 
-  const hasResponse = !!(record.responseEmailFilePath || record.responseHtmlBody || record.responseBody);
+  const hasResponse = responses.length > 0;
+  const hasAnyFollowup = followups.length > 0 || !!record.followupEmailFilePath;
+  const hasTrail = hasAnyFollowup || hasResponse;
 
-  const tabs: { key: EmailType; label: string; available: boolean }[] = [
-    { key: 'sent', label: 'Sent Email', available: !!record.sentEmailFilePath },
-    { key: 'followup', label: 'Follow-up', available: !!record.followupEmailFilePath },
+  // Build tab list
+  interface TabDef { key: ActiveTab; label: string; available: boolean; badge?: string }
+  const tabs: TabDef[] = [
+    { key: 'sent', label: 'Original', available: !!record.sentEmailFilePath },
+    ...(hasTrail
+      ? [{ key: 'trail' as ActiveTab, label: 'Full Trail', available: true,
+           badge: String((record.followupCount ?? 0) + (hasResponse ? 1 : 0)) }]
+      : []),
     { key: 'response', label: 'Response', available: hasResponse },
   ];
 
-  // Load file-based content for sent/followup tabs (response is inline)
+  // Load file-based content for sent/followup-N tabs
   useEffect(() => {
-    if (activeTab === 'response') {
+    if (activeTab === 'response' || activeTab === 'trail') {
       setEmailHtml(null);
+      setEmailPdfUrl(null);
       setEmailError(null);
-      setFilePath(record.responseEmailFilePath ?? null);
+      setFilePath(activeTab === 'response' ? (record.responseEmailFilePath ?? null) : null);
       return;
     }
 
     let cancelled = false;
     const gen = ++loadGenerationRef.current;
 
+    const isPdfPath = (p: string | null | undefined) => !!p && p.endsWith('.pdf');
+
     const load = async () => {
       setLoadingEmail(true);
       setEmailHtml(null);
+      setEmailPdfUrl(null);
       setEmailError(null);
       setFilePath(null);
 
       try {
+        // followup-N tabs: load from followupsJson history, fall back to legacy endpoint
+        if (activeTab.startsWith('followup-')) {
+          const fuNum = parseInt(activeTab.replace('followup-', ''), 10);
+          const entry = followups.find((f) => f.followupNumber === fuNum);
+          if (entry?.filePath) {
+            const rel = entry.filePath.replace(/\\/g, '/').split('emails/')[1] ?? '';
+            if (isPdfPath(entry.filePath)) {
+              setEmailPdfUrl(`/api/documents?action=file&path=${encodeURIComponent(rel)}`);
+              setFilePath(entry.filePath);
+            } else {
+              const res = await fetch(`/api/documents?action=file&path=${encodeURIComponent(rel)}`);
+              if (cancelled || gen !== loadGenerationRef.current) return;
+              if (res.ok) {
+                const data = await res.json();
+                setEmailHtml(data.content);
+                setFilePath(entry.filePath);
+              } else {
+                setEmailError('Could not load follow-up email');
+              }
+            }
+          } else {
+            const res = await fetch(`/api/confirmations/${record.id}/email-file?type=followup`);
+            if (cancelled || gen !== loadGenerationRef.current) return;
+            const ct = res.headers.get('content-type') ?? '';
+            if (ct.includes('application/pdf')) {
+              const blob = await res.blob();
+              setEmailPdfUrl(URL.createObjectURL(blob));
+            } else if (res.ok) {
+              const d = await res.json();
+              setEmailHtml(d.html);
+              setFilePath(d.filePath);
+            } else {
+              setEmailError('Could not load follow-up email');
+            }
+          }
+          return;
+        }
+
         const res = await fetch(`/api/confirmations/${record.id}/email-file?type=${activeTab}`);
         if (cancelled || gen !== loadGenerationRef.current) return;
+
+        const ct = res.headers.get('content-type') ?? '';
+        if (ct.includes('application/pdf')) {
+          const blob = await res.blob();
+          if (cancelled || gen !== loadGenerationRef.current) return;
+          setEmailPdfUrl(URL.createObjectURL(blob));
+          return;
+        }
+
         if (!res.ok) {
           const err = await res.json();
           setEmailError(err.error || 'Could not load email');
@@ -223,7 +331,10 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
           <div className="col-span-2"><MetaItem label="Email To" value={record.emailTo} /></div>
           {record.emailCc && <div className="col-span-2"><MetaItem label="Email CC" value={record.emailCc} /></div>}
           <MetaItem label="Sent At" value={formatDate(record.sentAt)} />
-          {record.followupSentAt && <MetaItem label="Follow-up Sent" value={formatDate(record.followupSentAt)} />}
+          <MetaItem
+            label={`Follow-ups${(record.followupCount ?? 0) > 0 ? ` (${record.followupCount})` : ''}`}
+            value={record.followupSentAt ? `Last: ${formatDate(record.followupSentAt)}` : (record.followupCount ?? 0) > 0 ? `${record.followupCount} sent` : undefined}
+          />
           {record.remarks && <div className="col-span-2"><MetaItem label="Remarks" value={record.remarks} /></div>}
         </div>
 
@@ -237,13 +348,13 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 bg-white px-4">
+        <div className="flex border-b border-gray-200 bg-white px-4 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => tab.available && setActiveTab(tab.key)}
               disabled={!tab.available}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.key
                   ? 'border-blue-600 text-blue-600'
                   : tab.available
@@ -252,11 +363,18 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
               }`}
             >
               {tab.label}
-              {!tab.available && <span className="ml-1 text-xs">(not available)</span>}
+              {tab.badge && Number(tab.badge) > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  activeTab === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
+              {!tab.available && <span className="ml-1 text-xs">(none)</span>}
             </button>
           ))}
           <div className="flex-1" />
-          {activeTab !== 'response' && emailHtml && (
+          {activeTab !== 'response' && activeTab !== 'trail' && emailHtml && (
             <button
               onClick={handlePrintPDF}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg my-1 transition-colors"
@@ -271,150 +389,87 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {/* ── RESPONSE TAB ── inline rich display */}
-          {activeTab === 'response' && (
-            <div className="flex flex-col h-full">
-              {hasResponse ? (
-                <>
-                  {/* Response header card */}
-                  <div className="bg-green-600 text-white px-6 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                      </svg>
-                      <span className="font-semibold text-lg">Reply Received</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
-                      <div>
-                        <p className="text-green-200 text-xs font-medium uppercase tracking-wide">From</p>
-                        <p className="text-white font-medium mt-0.5">
-                          {record.responseFromName || record.responseFromEmail || '—'}
-                        </p>
-                        {record.responseFromName && record.responseFromEmail && (
-                          <p className="text-green-200 text-xs mt-0.5">{record.responseFromEmail}</p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-green-200 text-xs font-medium uppercase tracking-wide">Received At</p>
-                        <p className="text-white font-medium mt-0.5">{formatDate(record.responseReceivedAt)}</p>
-                      </div>
-                      {record.responseSubject && (
-                        <div className="col-span-2">
-                          <p className="text-green-200 text-xs font-medium uppercase tracking-wide">Subject</p>
-                          <p className="text-white mt-0.5">{record.responseSubject}</p>
-                        </div>
-                      )}
-                    </div>
+
+          {/* ── TRAIL TAB ── timeline of all emails */}
+          {activeTab === 'trail' && (
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium px-1">Email Activity Timeline</p>
+
+              {/* Original */}
+              <TrailItem
+                type="conf"
+                label="Confirmation Sent"
+                date={record.sentAt}
+                subLabel={record.emailTo}
+                onView={record.sentEmailFilePath ? () => setActiveTab('sent') : undefined}
+              />
+
+              {/* Follow-ups from history */}
+              {followups.map((fu) => (
+                <TrailItem
+                  key={fu.followupNumber}
+                  type="followup"
+                  label={`Follow-up #${fu.followupNumber}`}
+                  date={fu.sentAt}
+                  subLabel={fu.subject}
+                  onView={fu.filePath ? () => setActiveTab(`followup-${fu.followupNumber}`) : undefined}
+                />
+              ))}
+
+              {/* Legacy single follow-up (if no history but has followupSentAt) */}
+              {followups.length === 0 && record.followupSentAt && (
+                <TrailItem
+                  type="followup"
+                  label="Follow-up Sent"
+                  date={record.followupSentAt}
+                  subLabel="(Legacy — details not available)"
+                  onView={record.followupEmailFilePath ? () => setActiveTab('followup-1' as ActiveTab) : undefined}
+                />
+              )}
+
+              {/* All responses */}
+              {responses.map((r, i) => (
+                <TrailItem
+                  key={r.messageId || i}
+                  type="response"
+                  label={responses.length > 1 ? `Response #${i + 1}` : 'Response Received'}
+                  date={r.receivedAt}
+                  subLabel={r.fromName ? `${r.fromName} <${r.fromEmail}>` : r.fromEmail}
+                  onView={() => setActiveTab('response')}
+                />
+              ))}
+              {!hasResponse && (
+                <div className="flex items-center gap-3 px-3 py-3 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                  <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm flex-shrink-0">?</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">Awaiting Response</p>
+                    <p className="text-xs text-gray-400 mt-0.5">No reply received yet</p>
                   </div>
-
-                  {/* Attachments bar (if any) */}
-                  {responseAttachments.length > 0 && (
-                    <div className="px-6 py-3 border-b border-gray-200 bg-amber-50">
-                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
-                        {responseAttachments.length} Attachment{responseAttachments.length > 1 ? 's' : ''}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {responseAttachments.map((att) => (
-                          <button
-                            key={att.id}
-                            onClick={() => handleDownloadAttachment(att)}
-                            disabled={downloadingAttachment === att.id}
-                            className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-60"
-                          >
-                            <span className="text-base leading-none">{fileIcon(att.contentType)}</span>
-                            <span className="max-w-[180px] truncate text-gray-700 font-medium">{att.name}</span>
-                            <span className="text-gray-400 text-xs flex-shrink-0">{formatFileSize(att.size)}</span>
-                            {downloadingAttachment === att.id ? (
-                              <svg className="w-4 h-4 animate-spin text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Toggle bar: reply-only vs full thread */}
-                  {record.responseEmailFilePath && (record.responseHtmlBody || record.responseBody) && (
-                    <div className="flex items-center gap-2 px-6 py-2 bg-gray-50 border-b border-gray-200 text-xs">
-                      <span className="text-gray-500">View:</span>
-                      <button
-                        onClick={() => setShowFullThread(false)}
-                        className={`px-2.5 py-1 rounded-full font-medium transition-colors ${!showFullThread ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
-                      >
-                        Reply only
-                      </button>
-                      <button
-                        onClick={async () => {
-                          setShowFullThread(true);
-                          if (!threadHtml) {
-                            setLoadingThread(true);
-                            try {
-                              const res = await fetch(`/api/confirmations/${record.id}/email-file?type=response`);
-                              if (res.ok) { const d = await res.json(); setThreadHtml(d.html); }
-                            } finally { setLoadingThread(false); }
-                          }
-                        }}
-                        className={`px-2.5 py-1 rounded-full font-medium transition-colors ${showFullThread ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
-                      >
-                        Full email thread
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Reply body */}
-                  <div className="flex-1 overflow-y-auto">
-                    {showFullThread ? (
-                      loadingThread ? (
-                        <div className="flex items-center justify-center py-24">
-                          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
-                        </div>
-                      ) : threadHtml ? (
-                        <iframe srcDoc={threadHtml} className="w-full h-full min-h-[400px]" title="Full Thread" sandbox="allow-same-origin" />
-                      ) : (
-                        <p className="text-sm text-gray-400 p-6">Could not load full thread.</p>
-                      )
-                    ) : record.responseHtmlBody ? (
-                      <iframe
-                        srcDoc={record.responseHtmlBody}
-                        className="w-full h-full min-h-[400px]"
-                        title="Response Content"
-                        sandbox="allow-same-origin"
-                      />
-                    ) : record.responseBody ? (
-                      <div className="px-6 py-5 text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
-                        {record.responseBody}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
-                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        <p className="text-sm">Reply content not available</p>
-                        <p className="text-xs text-gray-400">Run "Check Replies" again to re-capture this response.</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-                  <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" />
-                  </svg>
-                  <p className="text-sm">No response received yet</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── SENT / FOLLOWUP TABS ── iframe file viewer */}
-          {activeTab !== 'response' && (
+          {/* ── RESPONSE TAB ── shows all responses with navigation */}
+          {activeTab === 'response' && (
+            <ResponseTabContent
+              record={record}
+              responses={responses}
+              responseAttachments={responseAttachments}
+              downloadingAttachment={downloadingAttachment}
+              onDownloadAttachment={handleDownloadAttachment}
+              formatDate={formatDate}
+              showFullThread={showFullThread}
+              setShowFullThread={setShowFullThread}
+              threadHtml={threadHtml}
+              setThreadHtml={setThreadHtml}
+              loadingThread={loadingThread}
+              setLoadingThread={setLoadingThread}
+            />
+          )}
+
+          {/* ── SENT / FOLLOWUP-N TABS ── iframe file viewer */}
+          {activeTab !== 'response' && activeTab !== 'trail' && (
             <>
               {loadingEmail ? (
                 <div className="flex items-center justify-center h-full py-24">
@@ -427,6 +482,13 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
                   </svg>
                   <p className="text-sm">{emailError}</p>
                 </div>
+              ) : emailPdfUrl ? (
+                <embed
+                  src={emailPdfUrl}
+                  type="application/pdf"
+                  className="w-full h-full min-h-[400px]"
+                  title="Email PDF"
+                />
               ) : emailHtml ? (
                 <iframe
                   srcDoc={emailHtml}
@@ -443,15 +505,213 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
           )}
         </div>
 
-        {/* File path footer for sent/followup */}
-        {activeTab !== 'response' && filePath && (
+        {/* File path footer */}
+        {filePath && activeTab !== 'trail' && (
           <div className="px-6 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-400 truncate">
-            <span className="font-medium text-gray-500">File: </span>{filePath}
+            <span className="font-medium text-gray-500">
+              {activeTab === 'response' ? 'Saved: ' : 'File: '}
+            </span>
+            {filePath}
           </div>
         )}
-        {activeTab === 'response' && filePath && (
-          <div className="px-6 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-400 truncate">
-            <span className="font-medium text-gray-500">Saved: </span>{filePath}
+      </div>
+    </div>
+  );
+}
+
+function ResponseTabContent({
+  record,
+  responses,
+  responseAttachments,
+  downloadingAttachment,
+  onDownloadAttachment,
+  formatDate,
+  showFullThread,
+  setShowFullThread,
+  threadHtml,
+  setThreadHtml,
+  loadingThread,
+  setLoadingThread,
+}: {
+  record: ConfirmationRecord;
+  responses: ResponseEntry[];
+  responseAttachments: AttachmentMeta[];
+  downloadingAttachment: string | null;
+  onDownloadAttachment: (att: AttachmentMeta) => void;
+  formatDate: (d?: string | null) => string;
+  showFullThread: boolean;
+  setShowFullThread: (v: boolean) => void;
+  threadHtml: string | null;
+  setThreadHtml: (v: string | null) => void;
+  loadingThread: boolean;
+  setLoadingThread: (v: boolean) => void;
+}) {
+  const [activeResponseIdx, setActiveResponseIdx] = useState(0);
+  const resp = responses[activeResponseIdx];
+
+  if (!resp) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" />
+        </svg>
+        <p className="text-sm">No response received yet</p>
+      </div>
+    );
+  }
+
+  const respAttachments: AttachmentMeta[] = (() => {
+    try { return JSON.parse(resp.attachmentsJson ?? '[]'); } catch { return responseAttachments; }
+  })();
+
+  const [threadPdfUrl, setThreadPdfUrl] = useState<string | null>(null);
+
+  const loadFullThread = async () => {
+    setShowFullThread(true);
+    if (!threadHtml && !threadPdfUrl) {
+      setLoadingThread(true);
+      try {
+        const res = await fetch(`/api/confirmations/${record.id}/email-file?type=response`);
+        const ct = res.headers.get('content-type') ?? '';
+        if (ct.includes('application/pdf')) {
+          const blob = await res.blob();
+          setThreadPdfUrl(URL.createObjectURL(blob));
+        } else if (res.ok) {
+          const d = await res.json();
+          setThreadHtml(d.html);
+        }
+      } finally { setLoadingThread(false); }
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Multiple response navigation */}
+      {responses.length > 1 && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-gray-50 border-b border-gray-200">
+          <span className="text-xs text-gray-500 font-medium">
+            {responses.length} responses received:
+          </span>
+          {responses.map((r, i) => (
+            <button
+              key={r.messageId || i}
+              onClick={() => setActiveResponseIdx(i)}
+              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                i === activeResponseIdx ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }`}
+            >
+              #{i + 1}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Response header */}
+      <div className="bg-green-600 text-white px-6 py-4">
+        <div className="flex items-center gap-2 mb-3">
+          <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          <span className="font-semibold text-lg">
+            {responses.length > 1 ? `Response #${activeResponseIdx + 1} of ${responses.length}` : 'Reply Received'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+          <div>
+            <p className="text-green-200 text-xs font-medium uppercase tracking-wide">From</p>
+            <p className="text-white font-medium mt-0.5">{resp.fromName || resp.fromEmail || '—'}</p>
+            {resp.fromName && resp.fromEmail && <p className="text-green-200 text-xs mt-0.5">{resp.fromEmail}</p>}
+          </div>
+          <div>
+            <p className="text-green-200 text-xs font-medium uppercase tracking-wide">Received At</p>
+            <p className="text-white font-medium mt-0.5">{formatDate(resp.receivedAt)}</p>
+          </div>
+          {resp.subject && (
+            <div className="col-span-2">
+              <p className="text-green-200 text-xs font-medium uppercase tracking-wide">Subject</p>
+              <p className="text-white mt-0.5">{resp.subject}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Attachments */}
+      {respAttachments.length > 0 && (
+        <div className="px-6 py-3 border-b border-gray-200 bg-amber-50">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+            {respAttachments.length} Attachment{respAttachments.length > 1 ? 's' : ''}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {respAttachments.map((att) => (
+              <button
+                key={att.id}
+                onClick={() => onDownloadAttachment(att)}
+                disabled={downloadingAttachment === att.id}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-60"
+              >
+                <span className="text-base leading-none">{fileIcon(att.contentType)}</span>
+                <span className="max-w-[180px] truncate text-gray-700 font-medium">{att.name}</span>
+                <span className="text-gray-400 text-xs flex-shrink-0">{formatFileSize(att.size)}</span>
+                {downloadingAttachment === att.id ? (
+                  <svg className="w-4 h-4 animate-spin text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* View toggle */}
+      {resp.filePath && (resp.htmlBody || resp.body) && (
+        <div className="flex items-center gap-2 px-6 py-2 bg-gray-50 border-b border-gray-200 text-xs">
+          <span className="text-gray-500">View:</span>
+          <button
+            onClick={() => setShowFullThread(false)}
+            className={`px-2.5 py-1 rounded-full font-medium transition-colors ${!showFullThread ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
+          >
+            Reply only
+          </button>
+          <button
+            onClick={loadFullThread}
+            className={`px-2.5 py-1 rounded-full font-medium transition-colors ${showFullThread ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
+          >
+            Full email thread
+          </button>
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto">
+        {showFullThread ? (
+          loadingThread ? (
+            <div className="flex items-center justify-center py-24">
+              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+            </div>
+          ) : threadPdfUrl ? (
+            <embed src={threadPdfUrl} type="application/pdf" className="w-full h-full min-h-[400px]" title="Full Thread PDF" />
+          ) : threadHtml ? (
+            <iframe srcDoc={threadHtml} className="w-full h-full min-h-[400px]" title="Full Thread" sandbox="allow-same-origin" />
+          ) : (
+            <p className="text-sm text-gray-400 p-6">Could not load full thread.</p>
+          )
+        ) : resp.htmlBody ? (
+          <iframe srcDoc={resp.htmlBody} className="w-full h-full min-h-[400px]" title="Response" sandbox="allow-same-origin" />
+        ) : resp.body ? (
+          <div className="px-6 py-5 text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">{resp.body}</div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <p className="text-sm">Reply content not available</p>
+            <p className="text-xs">Run &ldquo;Check Replies&rdquo; to re-capture.</p>
           </div>
         )}
       </div>
@@ -465,6 +725,54 @@ function MetaItem({ label, value }: { label: string; value?: string | null }) {
     <div>
       <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</span>
       <p className="text-gray-700 mt-0.5 truncate" title={value}>{value}</p>
+    </div>
+  );
+}
+
+function TrailItem({
+  type,
+  label,
+  date,
+  subLabel,
+  onView,
+}: {
+  type: 'conf' | 'followup' | 'response';
+  label: string;
+  date?: string | null;
+  subLabel?: string;
+  onView?: () => void;
+}) {
+  const cfg = {
+    conf:     { icon: '📧', bg: 'bg-blue-50',   border: 'border-blue-200',  dot: 'bg-blue-500',  text: 'text-blue-700'  },
+    followup: { icon: '🔁', bg: 'bg-amber-50',  border: 'border-amber-200', dot: 'bg-amber-500', text: 'text-amber-700' },
+    response: { icon: '✅', bg: 'bg-green-50',  border: 'border-green-200', dot: 'bg-green-500', text: 'text-green-700' },
+  }[type];
+
+  const formatDate = (d?: string | null) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleString(undefined, {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className={`flex items-start gap-3 px-3 py-3 rounded-lg border ${cfg.bg} ${cfg.border}`}>
+      <div className={`w-8 h-8 rounded-full ${cfg.dot} flex items-center justify-center text-white text-sm flex-shrink-0 mt-0.5`}>
+        {cfg.icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold ${cfg.text}`}>{label}</p>
+        {date && <p className="text-xs text-gray-500 mt-0.5">{formatDate(date)}</p>}
+        {subLabel && <p className="text-xs text-gray-600 mt-0.5 truncate">{subLabel}</p>}
+      </div>
+      {onView && (
+        <button
+          onClick={onView}
+          className="flex-shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+        >
+          View →
+        </button>
+      )}
     </div>
   );
 }

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
 
   if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { entityName, category, bankName, accountNumber, custId, emailTo, emailCc, remarks } = body;
 
   const existing = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -62,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const existing = await prisma.confirmationRecord.findFirst({ where: { id, userId: user.userId } });
+  const existing = await prisma.confirmationRecord.findFirst({ where: { id } });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await request.json();
@@ -97,7 +97,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
   const existing = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

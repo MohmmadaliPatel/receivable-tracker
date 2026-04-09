@@ -3,7 +3,36 @@ import { GraphMailService, MailAttachment } from './graph-mail-service';
 import { EmailConfigService } from './email-config-service';
 import * as fs from 'fs';
 import * as path from 'path';
-import { EmailConfig } from '@prisma/client';
+import type { EmailConfig, ConfirmationRecord } from '@prisma/client';
+import puppeteer, { Browser } from 'puppeteer';
+
+// Singleton browser for PDF generation — avoids cold starts
+let _browser: Browser | null = null;
+async function getBrowser(): Promise<Browser> {
+  if (!_browser || !_browser.connected) {
+    _browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  }
+  return _browser;
+}
+
+async function htmlToPdf(html: string, outputPath: string): Promise<void> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    await page.pdf({
+      path: outputPath,
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '40px', right: '40px', bottom: '40px', left: '40px' },
+    });
+  } finally {
+    await page.close();
+  }
+}
 
 export const CATEGORIES = [
   'Bank Balances and FDs',
@@ -95,7 +124,7 @@ export function generateEmailHtml(entityName: string, category: string): string 
 </html>`;
 }
 
-// Generate the follow-up HTML email body
+// Generate the reminder HTML email body
 export function generateFollowupEmailHtml(entityName: string, category: string, originalSentAt: Date): string {
   const originalDate = originalSentAt.toLocaleDateString('en-IN', {
     day: '2-digit', month: 'long', year: 'numeric',
@@ -115,13 +144,13 @@ export function generateFollowupEmailHtml(entityName: string, category: string, 
   <div class="container">
     <p>Dear Sir/Ma'am,</p>
     <p>We hope this email finds you well.</p>
-    <p>This is a gentle follow-up to our earlier email dated <strong>${originalDate}</strong> requesting confirmation of balances for <strong>${entityName}</strong> for the year ended 31 March 2026.</p>
+    <p>This is a gentle reminder regarding our earlier email dated <strong>${originalDate}</strong> requesting confirmation of balances for <strong>${entityName}</strong> for the year ended 31 March 2026.</p>
     <div class="highlight">
       <strong>Category:</strong> ${category}<br>
       <strong>Entity:</strong> ${entityName}
     </div>
     <p>We would appreciate if you could kindly provide the confirmation at the earliest, as it is critical for timely completion of the statutory audit.</p>
-    <p>If you have already responded, please ignore this follow-up. If you have any queries, please feel free to reach out to us.</p>
+    <p>If you have already responded, please ignore this reminder. If you have any queries, please feel free to reach out to us.</p>
     <div class="signature">
       <p>Regards,<br>Audit Team,<br><strong>HSDR &amp; Associates</strong></p>
     </div>
@@ -148,16 +177,25 @@ export function getEmailBasePath(basePath: string = 'emails'): string {
   return path.join(process.cwd(), basePath);
 }
 
-// Build folder paths for an entity+category pair
-export function buildFolderPaths(entityName: string, category: string, basePath: string = 'emails') {
+// Build folder paths for an entity+category+bank "thread" — all related emails share ONE folder.
+// Structure: emails/{Entity}/{Category}/{BankOrParty}/
+// This makes the connection between sent email and response immediately obvious in the file browser.
+export function buildFolderPaths(entityName: string, category: string, basePath: string = 'emails', bankName?: string) {
   const base = getEmailBasePath(basePath);
   const entityFolder = sanitizePath(entityName);
   const categoryFolder = sanitizePath(category);
-  const sentFolder = path.join(base, entityFolder, categoryFolder, 'Emails Sent');
-  const responsesFolder = path.join(base, entityFolder, categoryFolder, 'Responses Received');
-  const sentRelative = path.join(basePath, entityFolder, categoryFolder, 'Emails Sent');
-  const responsesRelative = path.join(basePath, entityFolder, categoryFolder, 'Responses Received');
-  return { sentFolder, responsesFolder, sentRelative, responsesRelative };
+  const bankFolder = sanitizePath(bankName || 'General');
+  // Single thread folder — all CONF / FU-N / RESP files live here
+  const threadFolder = path.join(base, entityFolder, categoryFolder, bankFolder);
+  const threadRelative = path.join(basePath, entityFolder, categoryFolder, bankFolder);
+  return {
+    sentFolder: threadFolder,
+    responsesFolder: threadFolder,
+    sentRelative: threadRelative,
+    responsesRelative: threadRelative,
+    threadFolder,
+    threadRelative,
+  };
 }
 
 // Ensure a directory exists
@@ -178,84 +216,115 @@ function timestampPrefix(): string {
   return `${y}-${m}-${d}_${hh}-${mm}`;
 }
 
-// Save an HTML email to the "Emails Sent" folder
-export function saveEmailToSentFolder(
+// Save the original confirmation / follow-up email as a PDF.
+// All emails for the same entity+category+bank live in ONE folder so the thread is visible at a glance.
+export async function saveEmailToSentFolder(
   entityName: string,
   category: string,
   bankName: string,
   subject: string,
   htmlContent: string,
-  basePath: string = 'emails'
-): { filePath: string; relativePath: string } {
-  const { sentFolder, sentRelative } = buildFolderPaths(entityName, category, basePath);
-  ensureDir(sentFolder);
-  const safeName = sanitizePath(bankName || 'email');
-  const filename = `${timestampPrefix()}_${safeName}.html`;
-  const fullPath = path.join(sentFolder, filename);
+  basePath: string = 'emails',
+  label: string = 'CONF'   // CONF | FU-1 | FU-2 …
+): Promise<{ filePath: string; relativePath: string; filenameBase: string }> {
+  const { threadFolder, threadRelative } = buildFolderPaths(entityName, category, basePath, bankName);
+  ensureDir(threadFolder);
+  const ts = timestampPrefix();
+  const filename = `${ts}_${label}.pdf`;
+  const fullPath = path.join(threadFolder, filename);
   const fullHtml = wrapEmailHtml(subject, htmlContent, {
-    entityName, category, bankName, type: 'sent',
+    entityName, category, bankName, type: 'sent', label,
   });
-  fs.writeFileSync(fullPath, fullHtml, 'utf-8');
-  return { filePath: fullPath, relativePath: path.join(sentRelative, filename) };
+  await htmlToPdf(fullHtml, fullPath);
+  return { filePath: fullPath, relativePath: path.join(threadRelative, filename), filenameBase: `${ts}_${label}` };
 }
 
-// Save an HTML email to the "Responses Received" folder
-export function saveEmailToResponsesFolder(
+// Save a response as PDF — stored in the SAME folder as the sent email so connection is obvious.
+export async function saveEmailToResponsesFolder(
   entityName: string,
   category: string,
   fromEmail: string,
   subject: string,
   htmlContent: string,
-  basePath: string = 'emails'
-): { filePath: string; relativePath: string } {
-  const { responsesFolder, responsesRelative } = buildFolderPaths(entityName, category, basePath);
-  ensureDir(responsesFolder);
-  const safeName = sanitizePath(fromEmail || 'response');
-  const filename = `${timestampPrefix()}_${safeName}.html`;
-  const fullPath = path.join(responsesFolder, filename);
+  basePath: string = 'emails',
+  bankName: string = ''   // used to route into the correct thread folder
+): Promise<{ filePath: string; relativePath: string }> {
+  const { threadFolder, threadRelative } = buildFolderPaths(entityName, category, basePath, bankName);
+  ensureDir(threadFolder);
+  const safeSender = sanitizePath(fromEmail || 'response');
+  const ts = timestampPrefix();
+  const filename = `${ts}_RESP_from-${safeSender}.pdf`;
+  const fullPath = path.join(threadFolder, filename);
   const fullHtml = wrapEmailHtml(subject, htmlContent, {
-    entityName, category, fromEmail, type: 'received',
+    entityName, category, fromEmail, bankName, type: 'received',
   });
-  fs.writeFileSync(fullPath, fullHtml, 'utf-8');
-  return { filePath: fullPath, relativePath: path.join(responsesRelative, filename) };
+  await htmlToPdf(fullHtml, fullPath);
+  return { filePath: fullPath, relativePath: path.join(threadRelative, filename) };
 }
 
-// Wrap raw email body in a full styled HTML document for saving
+// Wrap raw email body in a full print-ready HTML document
 function wrapEmailHtml(
   subject: string,
   body: string,
-  meta: { entityName: string; category: string; bankName?: string; fromEmail?: string; type: 'sent' | 'received' }
+  meta: {
+    entityName: string;
+    category: string;
+    bankName?: string;
+    fromEmail?: string;
+    type: 'sent' | 'received';
+    label?: string;
+  }
 ): string {
-  const typeLabel = meta.type === 'sent' ? 'Email Sent' : 'Response Received';
-  const typeColor = meta.type === 'sent' ? '#2563eb' : '#16a34a';
+  const typeLabel = meta.type === 'sent'
+    ? (meta.label && meta.label !== 'CONF' ? `Reminder Email (${meta.label})` : 'Confirmation Email Sent')
+    : 'Response Received';
+  const typeColor = meta.type === 'sent'
+    ? (meta.label && meta.label !== 'CONF' ? '#d97706' : '#2563eb')
+    : '#16a34a';
+  const threadNote = meta.type === 'received'
+    ? `<div class="ref-banner">📂 All emails for this confirmation (sent + follow-ups + responses) are in this same folder.</div>`
+    : '';
+
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${subject}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f9fafb; }
-    .header { background: ${typeColor}; color: white; padding: 16px 24px; }
-    .header h1 { margin: 0; font-size: 18px; }
-    .header .meta { font-size: 12px; opacity: 0.85; margin-top: 4px; }
-    .content { background: white; margin: 20px; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .subject-line { font-size: 16px; font-weight: bold; color: #111; margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
-    @media print { body { background: white; } .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; background: #f8fafc; color: #111827; }
+    .header { background: ${typeColor}; color: white; padding: 18px 28px; }
+    .header h1 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+    .header .meta { font-size: 12px; opacity: 0.9; line-height: 1.6; }
+    .ref-banner { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 8px 14px; font-size: 12px; margin: 12px 20px 0; border-radius: 6px; }
+    .content { background: white; margin: 16px 20px 20px; padding: 24px 28px; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .subject-line { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb; }
+    .print-btn { display: block; text-align: center; margin: 0 20px 20px; padding: 10px; background: #1d4ed8; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
+    @media print {
+      .print-btn { display: none; }
+      body { background: white; }
+      .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .content { border: none; margin: 0; padding: 16px; box-shadow: none; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>${typeLabel}</h1>
     <div class="meta">
-      Entity: ${meta.entityName} &nbsp;|&nbsp; Category: ${meta.category}
-      ${meta.bankName ? `&nbsp;|&nbsp; Bank/Party: ${meta.bankName}` : ''}
-      ${meta.fromEmail ? `&nbsp;|&nbsp; From: ${meta.fromEmail}` : ''}
+      <strong>Entity:</strong> ${meta.entityName}&emsp;
+      <strong>Category:</strong> ${meta.category}
+      ${meta.bankName ? `&emsp;<strong>Bank/Party:</strong> ${meta.bankName}` : ''}
+      ${meta.fromEmail ? `&emsp;<strong>From:</strong> ${meta.fromEmail}` : ''}
     </div>
   </div>
+  ${threadNote}
   <div class="content">
-    <div class="subject-line">Subject: ${subject}</div>
+    <div class="subject-line">📧 ${subject}</div>
     ${body}
   </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Save as PDF / Print</button>
 </body>
 </html>`;
 }
@@ -271,7 +340,8 @@ export function readEmailFile(filePath: string): string | null {
 }
 
 export interface ConfirmationFilter {
-  userId: string;
+  /** When omitted, lists all users' records (shared workspace). */
+  userId?: string;
   entityName?: string | string[];
   category?: string | string[];
   status?: string | string[];
@@ -280,7 +350,8 @@ export interface ConfirmationFilter {
 
 // List confirmation records with optional filters
 export async function listConfirmationRecords(filter: ConfirmationFilter) {
-  const where: any = { userId: filter.userId };
+  const where: any = {};
+  if (filter.userId) where.userId = filter.userId;
 
   if (filter.entityName) {
     where.entityName = Array.isArray(filter.entityName)
@@ -393,21 +464,22 @@ async function fetchSentMessage(
 export async function sendConfirmation(
   recordId: string,
   userId: string,
-  configId?: string
+  configId?: string,
+  customEmailBody?: string
 ): Promise<{ success: boolean; error?: string }> {
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id: recordId, userId },
+    where: { id: recordId },
   });
   if (!record) return { success: false, error: 'Record not found' };
 
   const config = configId
-    ? await EmailConfigService.getConfigById(configId, userId)
-    : await EmailConfigService.getActiveConfig(userId);
+    ? await EmailConfigService.getConfigById(configId)
+    : await EmailConfigService.getActiveConfig();
   if (!config) return { success: false, error: 'No active email configuration found' };
 
   const settings = await getOrCreateSettings(userId);
   const subject = generateEmailSubject(record.entityName);
-  const htmlBody = generateEmailHtml(record.entityName, record.category);
+  const htmlBody = customEmailBody || generateEmailHtml(record.entityName, record.category);
 
   const toList = record.emailTo.split(',').map((e) => e.trim()).filter(Boolean);
   const ccList = record.emailCc
@@ -434,32 +506,41 @@ export async function sendConfirmation(
     await new Promise((r) => setTimeout(r, 2500));
     const sentMsg = await fetchSentMessage(config, subject, sendTime);
 
-    // Save to folder
-    const { filePath } = saveEmailToSentFolder(
+    // Save to folder with CONF prefix
+    const { filePath } = await saveEmailToSentFolder(
       record.entityName,
       record.category,
       record.bankName || 'email',
       subject,
       htmlBody,
-      settings.emailSaveBasePath
+      settings.emailSaveBasePath,
+      'CONF'
     );
 
-    const { sentRelative, responsesRelative } = buildFolderPaths(
+    // Thread folder path (single folder for all emails in this confirmation)
+    const { threadRelative } = buildFolderPaths(
       record.entityName,
       record.category,
-      settings.emailSaveBasePath
+      settings.emailSaveBasePath,
+      record.bankName || undefined
     );
+
+    // Store "messageId::conversationId" so we have both:
+    //   - messageId → needed to send follow-up as a thread reply via createReply
+    //   - conversationId → needed for reply detection (finding responses in inbox)
+    const sentMessageIdValue = sentMsg
+      ? `${sentMsg.messageId}::${sentMsg.conversationId}`
+      : undefined;
 
     await prisma.confirmationRecord.update({
       where: { id: recordId },
       data: {
         status: CONFIRMATION_STATUSES.SENT,
         sentAt: sendTime,
-        // Store conversationId so reply detection can find all thread replies
-        sentMessageId: sentMsg?.conversationId ?? sentMsg?.messageId ?? undefined,
+        sentMessageId: sentMessageIdValue,
         sentEmailFilePath: filePath,
-        emailsSentFolderPath: sentRelative,
-        responsesFolderPath: responsesRelative,
+        emailsSentFolderPath: threadRelative,
+        responsesFolderPath: threadRelative,
         emailConfigId: config.id,
       },
     });
@@ -470,13 +551,14 @@ export async function sendConfirmation(
   }
 }
 
-// Send a follow-up email for a record
+// Send a follow-up email for a record — sent as a reply in the original email thread
 export async function sendFollowup(
   recordId: string,
-  userId: string
+  userId: string,
+  customEmailBody?: string
 ): Promise<{ success: boolean; error?: string }> {
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id: recordId, userId },
+    where: { id: recordId },
   });
   if (!record) return { success: false, error: 'Record not found' };
   if (record.status === CONFIRMATION_STATUSES.RESPONSE_RECEIVED) {
@@ -487,13 +569,12 @@ export async function sendFollowup(
   }
 
   const config = record.emailConfigId
-    ? await EmailConfigService.getConfigById(record.emailConfigId, userId)
-    : await EmailConfigService.getActiveConfig(userId);
+    ? await EmailConfigService.getConfigById(record.emailConfigId)
+    : await EmailConfigService.getActiveConfig();
   if (!config) return { success: false, error: 'No active email configuration found' };
 
   const settings = await getOrCreateSettings(userId);
-  const subject = `Follow-up: ${generateEmailSubject(record.entityName)}`;
-  const htmlBody = generateFollowupEmailHtml(
+  const followupHtmlBody = customEmailBody || generateFollowupEmailHtml(
     record.entityName,
     record.category,
     record.sentAt || new Date()
@@ -504,48 +585,103 @@ export async function sendFollowup(
     ? record.emailCc.split(',').map((e) => e.trim()).filter(Boolean)
     : undefined;
 
-  // Include authority letter attachment in follow-up as well
   const attachments = buildAttachments(record.attachmentPath, record.attachmentName);
-
   const sendTime = new Date();
 
+  // Determine the original message ID to reply to.
+  // Prefer the most recent message: if a prior follow-up was sent, reply to that;
+  // otherwise reply to the original confirmation.
+  const priorParsed = parseSentMessageId(record.followupMessageId) ?? parseSentMessageId(record.sentMessageId);
+  const replyToId = priorParsed?.messageId || null;
+
   try {
-    await GraphMailService.sendMail(config, {
-      to: toList,
-      subject,
-      htmlBody,
-      cc: ccList,
-      attachments,
-      saveToSentItems: true,
-    });
+    if (replyToId) {
+      // --- Reply in-thread via Graph createReply ---
+      console.log(`[Confirmation] Sending follow-up as reply to message ${replyToId}`);
+      await GraphMailService.replyToMessage(config, replyToId, {
+        to: toList,
+        htmlBody: followupHtmlBody,
+        cc: ccList,
+        attachments,
+        saveToSentItems: true,
+      });
+    } else {
+      // --- Fallback: new email if no prior message ID available ---
+      const subject = `Reminder: ${generateEmailSubject(record.entityName)}`;
+      console.log('[Confirmation] No prior message ID; sending follow-up as new email');
+      await GraphMailService.sendMail(config, {
+        to: toList,
+        subject,
+        htmlBody: followupHtmlBody,
+        cc: ccList,
+        attachments,
+        saveToSentItems: true,
+      });
+    }
 
-    // Capture follow-up message details
+    // Capture the follow-up message ID/conversationId from Sent Items
     await new Promise((r) => setTimeout(r, 2500));
-    const followupMsg = await fetchSentMessage(config, subject, sendTime);
+    const originalSubject = generateEmailSubject(record.entityName);
+    const followupMsg = await fetchSentMessage(config, `RE: ${originalSubject}`, sendTime)
+      ?? await fetchSentMessage(config, originalSubject, sendTime);
 
-    const { filePath } = saveEmailToSentFolder(
+    const followupMessageIdValue = followupMsg
+      ? `${followupMsg.messageId}::${followupMsg.conversationId}`
+      : undefined;
+
+    // Follow-up count (this send increments it)
+    const newFollowupCount = (record.followupCount ?? 0) + 1;
+    const fuLabel = `FU-${newFollowupCount}`;
+
+    const { filePath, filenameBase } = await saveEmailToSentFolder(
       record.entityName,
       record.category,
       record.bankName || 'followup',
-      subject,
-      htmlBody,
-      settings.emailSaveBasePath
+      `Reminder ${newFollowupCount}: ${originalSubject}`,
+      followupHtmlBody,
+      settings.emailSaveBasePath,
+      fuLabel
     );
+
+    // Append to followupsJson history
+    const existingHistory: Array<{ sentAt: string; messageId: string | null; filePath: string; subject: string; followupNumber: number }> =
+      record.followupsJson ? JSON.parse(record.followupsJson) : [];
+    existingHistory.push({
+      sentAt: sendTime.toISOString(),
+      messageId: followupMessageIdValue ?? null,
+      filePath,
+      subject: `Reminder ${newFollowupCount}: ${originalSubject}`,
+      followupNumber: newFollowupCount,
+    });
 
     await prisma.confirmationRecord.update({
       where: { id: recordId },
       data: {
         status: CONFIRMATION_STATUSES.FOLLOWUP_SENT,
         followupSentAt: sendTime,
-        followupMessageId: followupMsg?.conversationId ?? followupMsg?.messageId ?? undefined,
+        followupMessageId: followupMessageIdValue,
         followupEmailFilePath: filePath,
+        followupCount: newFollowupCount,
+        followupsJson: JSON.stringify(existingHistory),
       },
     });
 
+    console.log(`[Confirmation] Reminder #${newFollowupCount} sent for "${record.entityName}" — file: ${path.basename(filePath)}`);
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to send follow-up' };
+    return { success: false, error: error.message || 'Failed to send reminder' };
   }
+}
+
+// Parse the combined "messageId::conversationId" stored in sentMessageId / followupMessageId
+function parseSentMessageId(value: string | null): { messageId: string; conversationId: string } | null {
+  if (!value) return null;
+  if (value.includes('::')) {
+    const [messageId, conversationId] = value.split('::');
+    return { messageId, conversationId };
+  }
+  // Legacy: only conversationId was stored (no '::')
+  return { messageId: '', conversationId: value };
 }
 
 // Determine whether a message was sent by the mailbox owner.
@@ -567,12 +703,11 @@ function isFromSelf(msg: any, fromEmail: string): boolean {
   return false;
 }
 
-// Check Graph inbox for replies to sent confirmations
-export async function checkRepliesForConfirmations(userId: string): Promise<number> {
+// Check Graph inbox for replies — all users' records; grouped by mailbox (emailConfigId / active config).
+export async function checkRepliesForConfirmations(): Promise<number> {
   const pendingRecords = await prisma.confirmationRecord.findMany({
     where: {
-      userId,
-      status: { in: [CONFIRMATION_STATUSES.SENT, CONFIRMATION_STATUSES.FOLLOWUP_SENT] },
+      status: { in: [CONFIRMATION_STATUSES.SENT, CONFIRMATION_STATUSES.FOLLOWUP_SENT, CONFIRMATION_STATUSES.RESPONSE_RECEIVED] },
       sentAt: { not: null },
     },
   });
@@ -582,13 +717,33 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
     return 0;
   }
 
-  const config = await EmailConfigService.getActiveConfig(userId);
-  if (!config) {
-    console.error('[Confirmation] No active email config found for reply check.');
-    return 0;
+  const groups = new Map<string, { config: EmailConfig; records: ConfirmationRecord[] }>();
+  for (const record of pendingRecords) {
+    const config = record.emailConfigId
+      ? await EmailConfigService.getConfigById(record.emailConfigId)
+      : await EmailConfigService.getActiveConfig();
+    if (!config) {
+      console.warn(`[Confirmation] No email config for record ${record.id}; skipping`);
+      continue;
+    }
+    let g = groups.get(config.id);
+    if (!g) {
+      g = { config, records: [] };
+      groups.set(config.id, g);
+    }
+    g.records.push(record);
   }
 
-  const settings = await getOrCreateSettings(userId);
+  if (groups.size === 0) return 0;
+
+  let total = 0;
+  for (const { config, records } of groups.values()) {
+    total += await checkRepliesForMailboxGroup(config, records);
+  }
+  return total;
+}
+
+async function checkRepliesForMailboxGroup(config: EmailConfig, pendingRecords: ConfirmationRecord[]): Promise<number> {
   let repliesFound = 0;
 
   let accessToken: string;
@@ -601,9 +756,6 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
 
   const userPrincipal = encodeURIComponent(config.fromEmail);
 
-  // Pre-fetch recent INBOX messages since the earliest sent date.
-  // IMPORTANT: scope to Inbox folder only — searching across all folders picks up
-  // our own Sent Items which then bypasses the self-sender filter.
   const earliestSentAt = pendingRecords.reduce((earliest, r) => {
     const d = r.sentAt ? new Date(r.sentAt) : new Date();
     return d < earliest ? d : earliest;
@@ -618,7 +770,7 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
       + `&$orderby=receivedDateTime desc&$top=100`
       + `&$select=id,subject,from,sender,receivedDateTime,bodyPreview,hasAttachments,conversationId`;
 
-    console.log('[Confirmation] Fetching inbox messages since', windowIso);
+    console.log('[Confirmation] Fetching inbox messages since', windowIso, 'for mailbox', config.fromEmail);
     const inboxRes = await fetch(inboxUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
 
     if (!inboxRes.ok) {
@@ -629,7 +781,6 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
       inboxMessages = inboxData.value || [];
       console.log(`[Confirmation] Found ${inboxMessages.length} inbox message(s) since ${windowIso}`);
 
-      // Log first few for debugging
       inboxMessages.slice(0, 5).forEach((m: any, i: number) => {
         console.log(`  [${i}] subject="${m.subject}" from="${m.from?.emailAddress?.address}" convId=${m.conversationId?.substring(0, 20)}...`);
       });
@@ -640,15 +791,24 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
 
   for (const record of pendingRecords) {
     try {
+      const settings = await getOrCreateSettings(record.userId);
       const sentAt = record.sentAt ? new Date(record.sentAt) : new Date(0);
       const baseSubject = generateEmailSubject(record.entityName);
       const entityNameLower = record.entityName.toLowerCase();
+
+      // Build set of already-captured response message IDs to avoid duplicates
+      const capturedIds = new Set<string>();
+      if (record.responseMessageId) capturedIds.add(record.responseMessageId);
+      try {
+        const existing: Array<{ messageId: string }> = JSON.parse(record.responsesJson ?? '[]');
+        existing.forEach((r) => r.messageId && capturedIds.add(r.messageId));
+      } catch { /* ignore */ }
 
       // Common filter: must be after sentAt, must NOT be from self, must not be already captured.
       const isValidReply = (m: any) => {
         if (new Date(m.receivedDateTime) <= sentAt) return false;
         if (isFromSelf(m, config.fromEmail)) return false;
-        if (record.responseMessageId === m.id) return false;
+        if (capturedIds.has(m.id)) return false;
         return true;
       };
 
@@ -658,8 +818,10 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
       let replyMsg: any = null;
 
       // ---------- Strategy 1: match by conversationId ----------
-      if (record.sentMessageId) {
-        const conversationId = record.sentMessageId;
+      // sentMessageId stores "messageId::conversationId" (or legacy: just conversationId)
+      const sentParsed = parseSentMessageId(record.sentMessageId);
+      if (sentParsed?.conversationId) {
+        const conversationId = sentParsed.conversationId;
         const matches = inboxMessages.filter((m: any) => m.conversationId === conversationId && isValidReply(m));
         matches.sort(sortNewestFirst);
         if (matches.length > 0) {
@@ -772,18 +934,31 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
         console.warn('[Confirmation] Failed to fetch full message body:', err);
       }
 
-      // ---------- Fetch attachment metadata list ----------
+      // ---------- Fetch attachment metadata & download files to thread folder ----------
       if (hasAttachments) {
         try {
           const attRes = await fetch(
-            `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${replyMsg.id}/attachments?$select=id,name,contentType,size`,
+            `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${replyMsg.id}/attachments`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
           );
           if (attRes.ok) {
             const attData = await attRes.json();
-            const list = (attData.value || []).map((a: any) => ({
-              id: a.id, name: a.name, contentType: a.contentType, size: a.size,
-            }));
+            const { threadFolder } = buildFolderPaths(record.entityName, record.category, settings.emailSaveBasePath, record.bankName || undefined);
+            const attachDir = path.join(threadFolder, 'attachments');
+            ensureDir(attachDir);
+
+            const list = (attData.value || []).map((a: any) => {
+              // Save file-type attachments to disk
+              if (a.contentBytes && a.name) {
+                try {
+                  const safeName = sanitizePath(a.name);
+                  const attPath = path.join(attachDir, `${timestampPrefix()}_RESP_${safeName}`);
+                  fs.writeFileSync(attPath, Buffer.from(a.contentBytes, 'base64'));
+                  return { id: a.id, name: a.name, contentType: a.contentType, size: a.size, savedPath: attPath };
+                } catch { /* best-effort */ }
+              }
+              return { id: a.id, name: a.name, contentType: a.contentType, size: a.size };
+            });
             attachmentsJson = JSON.stringify(list);
           }
         } catch {
@@ -792,12 +967,14 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
       }
 
       // ---------- Save to folder and update DB ----------
-      // Full thread body → saved to disk (complete email trail in the HTML file)
-      // uniqueBody → stored in DB for the inline Response tab display in the UI
-      const { filePath } = saveEmailToResponsesFolder(
+      // Response goes into the SAME thread folder as the confirmation email:
+      //   emails/{Entity}/{Category}/{BankName}/
+      // This makes the connection obvious when browsing files.
+      const { filePath } = await saveEmailToResponsesFolder(
         record.entityName, record.category,
         fromEmail || 'unknown', replyMsg.subject || '',
-        bodyContent, settings.emailSaveBasePath
+        bodyContent, settings.emailSaveBasePath,
+        record.bankName || ''
       );
 
       const isBodyHtml = bodyContentType.toLowerCase() === 'html';
@@ -805,6 +982,22 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
       // For DB inline display: prefer uniqueBody if captured, else fall back to full body
       const dbHtml = uniqueBodyHtml ?? (isBodyHtml ? bodyContent : undefined);
       const dbText = uniqueBodyText ?? (!isBodyHtml ? bodyContent : undefined);
+
+      // Append to responsesJson history so multiple replies are all captured
+      const existingResponses: Array<Record<string, unknown>> =
+        record.responsesJson ? JSON.parse(record.responsesJson) : [];
+      existingResponses.push({
+        receivedAt: replyMsg.receivedDateTime,
+        messageId: replyMsg.id,
+        subject: replyMsg.subject,
+        fromEmail,
+        fromName,
+        htmlBody: dbHtml ?? null,
+        body: dbText ?? null,
+        filePath,
+        hasAttachments,
+        attachmentsJson: attachmentsJson ?? null,
+      });
 
       await prisma.confirmationRecord.update({
         where: { id: record.id },
@@ -820,11 +1013,12 @@ export async function checkRepliesForConfirmations(userId: string): Promise<numb
           responseEmailFilePath: filePath,
           responseHasAttachments: hasAttachments,
           responseAttachmentsJson: attachmentsJson,
+          responsesJson: JSON.stringify(existingResponses),
         },
       });
 
       repliesFound++;
-      console.log(`[Confirmation] Reply captured for "${record.entityName}" / ${record.category} from ${fromName} <${fromEmail}>`);
+      console.log(`[Confirmation] Reply #${existingResponses.length} captured for "${record.entityName}" / ${record.category} from ${fromName} <${fromEmail}>`);
     } catch (err) {
       console.error(`[Confirmation] Error checking reply for record ${record.id}:`, err);
     }
@@ -858,21 +1052,20 @@ export async function updateSettings(userId: string, data: {
 }
 
 // Diagnostic: fetch raw inbox messages visible to the reply-check logic
-export async function debugInboxScan(userId: string, since?: string): Promise<{
+export async function debugInboxScan(since?: string): Promise<{
   error?: string;
   pendingRecords: Array<{ id: string; entityName: string; status: string; sentAt: string | null; sentMessageId: string | null }>;
   inboxMessages: Array<{ id: string; subject: string; from: string; receivedDateTime: string; conversationId: string }>;
 }> {
   const pendingRecords = await prisma.confirmationRecord.findMany({
     where: {
-      userId,
       status: { in: [CONFIRMATION_STATUSES.SENT, CONFIRMATION_STATUSES.FOLLOWUP_SENT] },
       sentAt: { not: null },
     },
     select: { id: true, entityName: true, status: true, sentAt: true, sentMessageId: true },
   });
 
-  const config = await EmailConfigService.getActiveConfig(userId);
+  const config = await EmailConfigService.getActiveConfig();
   if (!config) return { error: 'No active email config', pendingRecords: pendingRecords.map(r => ({ ...r, sentAt: r.sentAt?.toISOString() ?? null })), inboxMessages: [] };
 
   let accessToken: string;
@@ -915,10 +1108,9 @@ export async function debugInboxScan(userId: string, since?: string): Promise<{
   };
 }
 
-// Get distinct entity names for a user (for filter dropdowns)
-export async function getEntityNames(userId: string): Promise<string[]> {
+// Distinct entity names across the shared workspace
+export async function getEntityNames(): Promise<string[]> {
   const records = await prisma.confirmationRecord.findMany({
-    where: { userId },
     select: { entityName: true },
     distinct: ['entityName'],
     orderBy: { entityName: 'asc' },

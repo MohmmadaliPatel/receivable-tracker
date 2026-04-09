@@ -30,7 +30,7 @@ export async function POST(
     }
 
     // Get active email config
-    const config = await EmailConfigService.getActiveConfig(user.userId);
+    const config = await EmailConfigService.getActiveConfig();
     if (!config) {
       return NextResponse.json(
         { error: 'No active email configuration found' },

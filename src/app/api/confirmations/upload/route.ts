@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (mode === 'replace') {
-    await prisma.confirmationRecord.deleteMany({ where: { userId: user.userId } });
+    await prisma.confirmationRecord.deleteMany({});
   }
 
   const created = await prisma.confirmationRecord.createMany({

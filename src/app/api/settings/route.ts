@@ -27,9 +27,13 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const { autoReplyCheck, replyCheckIntervalMinutes, emailSaveBasePath } = body;
 
+  const clampedInterval = replyCheckIntervalMinutes !== undefined
+    ? Math.max(30, Math.min(360, Number(replyCheckIntervalMinutes) || 30))
+    : undefined;
+
   const settings = await updateSettings(user.userId, {
     ...(autoReplyCheck !== undefined && { autoReplyCheck }),
-    ...(replyCheckIntervalMinutes !== undefined && { replyCheckIntervalMinutes }),
+    ...(clampedInterval !== undefined && { replyCheckIntervalMinutes: clampedInterval }),
     ...(emailSaveBasePath !== undefined && { emailSaveBasePath }),
   });
 

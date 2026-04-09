@@ -143,6 +143,91 @@ export class GraphMailService {
     return data.access_token;
   }
 
+  // Send a threaded reply to an existing message.
+  // Uses Graph's createReply + PATCH + send flow so the follow-up appears in the same thread.
+  static async replyToMessage(
+    config: EmailConfig,
+    originalMessageId: string,
+    options: Omit<SendMailOptions, 'subject'>
+  ): Promise<void> {
+    const accessToken = await GraphMailService.getAccessToken(config);
+    const userPrincipal = encodeURIComponent(config.fromEmail);
+
+    // Step 1 – create a reply draft (copies To/Subject/conversationId from the original)
+    const createRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${originalMessageId}/createReply`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      }
+    );
+    if (!createRes.ok) {
+      const err = await createRes.text();
+      throw new Error(`createReply failed (${createRes.status}): ${err}`);
+    }
+    const draft = await createRes.json();
+    const draftId: string = draft.id;
+
+    // Step 2 – PATCH the draft: set custom body, CC recipients, and attachments
+    const toRecipients = Array.isArray(options.to)
+      ? options.to.map((a) => ({ emailAddress: { address: a } }))
+      : [{ emailAddress: { address: options.to } }];
+
+    const ccRecipients = options.cc
+      ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((a) => ({ emailAddress: { address: a } }))
+      : undefined;
+
+    const graphAttachments = options.attachments?.map((a) => ({
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: a.name,
+      contentType: a.contentType,
+      contentBytes: a.contentBytes,
+    }));
+
+    const patchBody: any = {
+      toRecipients,
+      body: {
+        contentType: options.htmlBody ? 'HTML' : 'Text',
+        content: options.htmlBody || options.body || '',
+      },
+      ...(ccRecipients && { ccRecipients }),
+      ...(graphAttachments?.length && { attachments: graphAttachments }),
+    };
+
+    const patchRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patchBody),
+      }
+    );
+    if (!patchRes.ok) {
+      const err = await patchRes.text();
+      throw new Error(`PATCH draft failed (${patchRes.status}): ${err}`);
+    }
+
+    // Step 3 – send the draft
+    const sendRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftId}/send`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!sendRes.ok) {
+      const err = await sendRes.text();
+      throw new Error(`Send draft failed (${sendRes.status}): ${err}`);
+    }
+  }
+
   // Validate configuration by attempting to get a token
   static async validateConfig(config: EmailConfig): Promise<{ valid: boolean; error?: string }> {
     try {

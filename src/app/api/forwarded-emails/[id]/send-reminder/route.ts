@@ -54,7 +54,7 @@ export async function POST(
     }
 
     // Get active email config
-    const config = tracking.emailConfig || await EmailConfigService.getActiveConfig(user.userId);
+    const config = tracking.emailConfig || await EmailConfigService.getActiveConfig();
     if (!config) {
       return NextResponse.json(
         { error: 'No active email configuration found' },

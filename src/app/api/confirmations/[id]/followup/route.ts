@@ -16,7 +16,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const result = await sendFollowup(id, user.userId);
+  const body = await request.json().catch(() => ({}));
+  const { emailBody } = body;
+  const result = await sendFollowup(id, user.userId, emailBody || undefined);
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 });

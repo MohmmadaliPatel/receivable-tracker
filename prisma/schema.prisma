@@ -26,6 +26,7 @@ model User {
   password      String    // Hashed password
   name          String?
   email         String?   @unique
+  role          String    @default("user") // "admin" | "user"
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
@@ -219,12 +220,16 @@ model ConfirmationRecord {
   sentMessageId        String?   // Graph API message ID of sent confirmation
   sentEmailFilePath    String?   // Local file path of saved sent email HTML
 
-  // Follow-up details
+  // Follow-up details (latest follow-up — kept for backward compat)
   followupSentAt       DateTime?
   followupMessageId    String?
   followupEmailFilePath String?
 
-  // Response details
+  // Follow-up history (all follow-ups, newest last)
+  followupCount        Int       @default(0)
+  followupsJson        String?   // JSON: [{sentAt, messageId, filePath, subject}]
+
+  // Response details (first/latest response — kept for quick access)
   responseReceivedAt      DateTime?
   responseMessageId       String?
   responseSubject         String?
@@ -235,6 +240,9 @@ model ConfirmationRecord {
   responseEmailFilePath   String?  // Local file path of saved response HTML
   responseHasAttachments  Boolean  @default(false)
   responseAttachmentsJson String?  // JSON array: [{id, name, contentType, size}]
+
+  // All responses (supports multiple replies in the same thread)
+  responsesJson           String?  // JSON array: [{receivedAt, messageId, subject, fromEmail, fromName, htmlBody, body, filePath, hasAttachments, attachmentsJson}]
 
   // Attachment (Authority Letter)
   attachmentPath       String?   // Server path to uploaded attachment

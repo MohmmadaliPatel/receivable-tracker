@@ -21,22 +21,35 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
   const entityName = formData.get('entityName') as string | null;
+  const category = formData.get('category') as string | null;
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-  if (!entityName) return NextResponse.json({ error: 'entityName is required' }, { status: 400 });
-
-  // Find all records for this entity
-  const records = await prisma.confirmationRecord.findMany({
-    where: { userId: user.userId, entityName },
-  });
-
-  if (records.length === 0) {
-    return NextResponse.json({ error: `No records found for entity: ${entityName}` }, { status: 404 });
+  if (!entityName && !category) {
+    return NextResponse.json({ error: 'entityName or category is required' }, { status: 400 });
   }
 
-  // Save the file once under a shared entity attachment folder
-  const safeEntity = entityName.replace(/[^a-zA-Z0-9._-\s]/g, '').trim().substring(0, 80);
-  const attachmentsDir = path.join(process.cwd(), 'attachments', 'entities', safeEntity);
+  // Build where clause — both, either, or just one filter
+  const where: Record<string, unknown> = {};
+  if (entityName) where.entityName = entityName;
+  if (category) where.category = category;
+
+  const records = await prisma.confirmationRecord.findMany({ where });
+
+  if (records.length === 0) {
+    const scope = entityName && category
+      ? `entity "${entityName}" / category "${category}"`
+      : entityName ? `entity "${entityName}"` : `category "${category}"`;
+    return NextResponse.json({ error: `No records found for ${scope}` }, { status: 404 });
+  }
+
+  // Save the file under an appropriate attachment folder
+  const safeEntity = entityName
+    ? entityName.replace(/[^a-zA-Z0-9._-\s]/g, '').trim().substring(0, 80)
+    : '_all_entities';
+  const safeCat = category ? category.replace(/[^a-zA-Z0-9._-\s]/g, '').trim().substring(0, 80) : '';
+  const attachmentsDir = safeCat
+    ? path.join(process.cwd(), 'attachments', 'entities', safeEntity, safeCat)
+    : path.join(process.cwd(), 'attachments', 'entities', safeEntity);
   if (!fs.existsSync(attachmentsDir)) {
     fs.mkdirSync(attachmentsDir, { recursive: true });
   }
@@ -46,9 +59,8 @@ export async function POST(request: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer());
   fs.writeFileSync(filePath, buffer);
 
-  // Update all matching records
   await prisma.confirmationRecord.updateMany({
-    where: { userId: user.userId, entityName },
+    where,
     data: {
       attachmentPath: filePath,
       attachmentName: file.name,

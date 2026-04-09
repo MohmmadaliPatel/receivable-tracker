@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { id } = await params;
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -30,8 +30,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   }
 
-  // Save to attachments directory
-  const attachmentsDir = path.join(process.cwd(), 'attachments', user.userId, id);
+  // Shared workspace: one folder per record id
+  const attachmentsDir = path.join(process.cwd(), 'attachments', 'records', id);
   if (!fs.existsSync(attachmentsDir)) {
     fs.mkdirSync(attachmentsDir, { recursive: true });
   }
@@ -59,7 +59,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

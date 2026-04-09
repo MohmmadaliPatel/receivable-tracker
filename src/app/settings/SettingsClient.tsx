@@ -120,27 +120,28 @@ export default function SettingsClient() {
           {autoReplyCheck && (
             <div className="mt-5 pt-5 border-t border-gray-100">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Check interval (minutes)
+                Check interval
               </label>
               <div className="flex items-center gap-4">
                 <input
                   type="range"
-                  min={5}
-                  max={120}
-                  step={5}
+                  min={30}
+                  max={360}
+                  step={30}
                   value={interval}
                   onChange={(e) => setInterval(Number(e.target.value))}
                   className="flex-1 accent-blue-600"
                 />
-                <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-2 min-w-[80px] justify-center">
-                  <span className="text-lg font-bold text-gray-800">{interval}</span>
-                  <span className="text-xs text-gray-500">min</span>
+                <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-2 min-w-[100px] justify-center">
+                  <span className="text-lg font-bold text-gray-800">
+                    {interval >= 60 ? `${Math.floor(interval / 60)}h${interval % 60 > 0 ? ` ${interval % 60}m` : ''}` : `${interval}m`}
+                  </span>
                 </div>
               </div>
               <div className="flex justify-between text-xs text-gray-400 mt-1 px-0.5">
-                <span>5 min</span>
-                <span>Every {interval >= 60 ? `${Math.floor(interval / 60)}h ${interval % 60 > 0 ? `${interval % 60}m` : ''}`.trim() : `${interval}m`}</span>
-                <span>2 hours</span>
+                <span>30 min</span>
+                <span>Every {interval >= 60 ? `${Math.floor(interval / 60)}h${interval % 60 > 0 ? ` ${interval % 60}m` : ''}` : `${interval}m`}</span>
+                <span>6 hours</span>
               </div>
               <p className="text-xs text-gray-400 mt-3">
                 Note: Reply checks run in conjunction with the email cron job. The cron job must be enabled on at least one Email Configuration for auto-check to work.

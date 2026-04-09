@@ -29,7 +29,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const config = await EmailConfigService.getConfigById(id, user.userId);
+    const config = await EmailConfigService.getConfigById(id);
 
     if (!config) {
       return NextResponse.json({ error: 'Configuration not found' }, { status: 404 });
@@ -60,7 +60,7 @@ export async function PUT(
     const body = await request.json();
     const { name, type, msTenantId, msClientId, msClientSecret, fromEmail, isActive, cronEnabled, cronIntervalMinutes, reminderEnabled, reminderDurationHours, reminderDurationUnit } = body;
 
-    const config = await EmailConfigService.updateConfig(id, user.userId, {
+    const config = await EmailConfigService.updateConfig(id, {
       ...(name && { name }),
       ...(type && { type }),
       ...(msTenantId && { msTenantId }),
@@ -108,7 +108,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await EmailConfigService.deleteConfig(id, user.userId);
+    await EmailConfigService.deleteConfig(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

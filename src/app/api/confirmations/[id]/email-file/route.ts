@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { getSession } from '@/lib/simple-auth';
 import { prisma } from '@/lib/prisma';
 import { readEmailFile } from '@/lib/confirmation-service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -18,10 +20,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || 'sent'; // sent | followup | response
+  const type = searchParams.get('type') || 'sent';
 
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -34,6 +36,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'No email file available for this type' }, { status: 404 });
   }
 
+  // PDF files — return binary for iframe/embed preview
+  if (filePath.endsWith('.pdf')) {
+    if (!fs.existsSync(filePath)) {
+      return NextResponse.json({ error: 'Email file not found on disk' }, { status: 404 });
+    }
+    const content = fs.readFileSync(filePath);
+    return new NextResponse(content, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${path.basename(filePath)}"`,
+      },
+    });
+  }
+
+  // Legacy HTML files
   const content = readEmailFile(filePath);
   if (!content) {
     return NextResponse.json({ error: 'Email file not found on disk' }, { status: 404 });

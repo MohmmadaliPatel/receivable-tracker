@@ -18,6 +18,9 @@ export interface ConfirmationRecord {
   status: string;
   sentAt?: string | null;
   followupSentAt?: string | null;
+  followupCount?: number;
+  followupsJson?: string | null;
+  responsesJson?: string | null;
   responseReceivedAt?: string | null;
   responseSubject?: string | null;
   responseFromEmail?: string | null;
@@ -90,7 +93,7 @@ export default function ConfirmationTable({ records, onRefresh, loading }: Confi
     setSendModalMode(mode);
   };
 
-  const handleSendConfirmed = async (overrides: { emailTo: string; emailCc: string; remarks: string }) => {
+  const handleSendConfirmed = async (overrides: { emailTo: string; emailCc: string; remarks: string; emailBody?: string }) => {
     if (!sendModalRecord) return;
     setSendingId(sendModalRecord.id);
 
@@ -113,7 +116,7 @@ export default function ConfirmationTable({ records, onRefresh, loading }: Confi
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ emailBody: overrides.emailBody || undefined }),
     });
     const data = await res.json();
     setSendingId(null);
@@ -342,6 +345,11 @@ export default function ConfirmationTable({ records, onRefresh, loading }: Confi
                           </svg>
                         )}
                         Follow-up
+                        {(record.followupCount ?? 0) > 0 && (
+                          <span className="ml-0.5 bg-white/30 text-white text-[10px] font-bold px-1 rounded-full">
+                            #{(record.followupCount ?? 0) + 1}
+                          </span>
+                        )}
                       </button>
                     )}
                     {record.status === 'response_received' && (

@@ -30,6 +30,8 @@ export default function BulkEmailClient() {
   const [loading, setLoading] = useState(true);
   const [checkingReplies, setCheckingReplies] = useState(false);
   const [repliesMessage, setRepliesMessage] = useState<string | null>(null);
+  const [sendingBulkFollowup, setSendingBulkFollowup] = useState(false);
+  const [bulkFollowupMessage, setBulkFollowupMessage] = useState<string | null>(null);
 
   // Filters
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
@@ -101,7 +103,7 @@ export default function BulkEmailClient() {
   const handleDownloadCSV = () => {
     const headers = [
       'Sr No', 'Entity Name', 'Category', 'Bank / Party', 'Account No', 'Cust ID',
-      'Email TO', 'Email CC', 'Attachment', 'Status', 'Sent At', 'Followup Sent At',
+      'Email TO', 'Email CC', 'Attachment', 'Status', 'Sent At', 'Follow-up Sent At',
       'Response At', 'Response From', 'Response Subject', 'Remarks',
       'Emails Sent Folder', 'Responses Folder',
     ];
@@ -138,7 +140,46 @@ export default function BulkEmailClient() {
     else { setSortField(field); setSortAsc(true); }
   };
 
+  const handleBulkFollowup = async () => {
+    const pendingCount = records.filter(
+      (r) => r.status === 'sent' || r.status === 'followup_sent'
+    ).length;
+    if (pendingCount === 0) {
+      setBulkFollowupMessage('No records pending follow-up');
+      setTimeout(() => setBulkFollowupMessage(null), 3000);
+      return;
+    }
+    if (!confirm(`Send follow-up emails to ${pendingCount} record(s) that haven't responded yet?`)) return;
+    setSendingBulkFollowup(true);
+    setBulkFollowupMessage(null);
+    try {
+      const res = await fetch('/api/confirmations/bulk-followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entityNames: selectedEntities.length ? selectedEntities : undefined,
+          categories: selectedCategories.length ? selectedCategories : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBulkFollowupMessage(
+          data.sent > 0
+            ? `Follow-up sent to ${data.sent}/${data.total} records${data.failed > 0 ? ` (${data.failed} failed)` : ''}`
+            : 'No follow-ups sent'
+        );
+        fetchRecords();
+      } else {
+        setBulkFollowupMessage(`Error: ${data.error || 'Failed'}`);
+      }
+    } finally {
+      setSendingBulkFollowup(false);
+      setTimeout(() => setBulkFollowupMessage(null), 5000);
+    }
+  };
+
   const matchCount = records.filter((r) => r.status === 'not_sent').length;
+  const followupCount = records.filter((r) => r.status === 'sent' || r.status === 'followup_sent').length;
 
   const toggleFilter = <T extends string>(arr: T[], setArr: (a: T[]) => void, val: T) => {
     setArr(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
@@ -173,6 +214,15 @@ export default function BulkEmailClient() {
               {repliesMessage}
             </span>
           )}
+          {bulkFollowupMessage && (
+            <span className={`text-sm font-medium px-3 py-1.5 rounded-lg border ${
+              bulkFollowupMessage.startsWith('Error')
+                ? 'text-red-600 bg-red-50 border-red-200'
+                : 'text-amber-700 bg-amber-50 border-amber-200'
+            }`}>
+              {bulkFollowupMessage}
+            </span>
+          )}
           <button
             onClick={handleCheckReplies}
             disabled={checkingReplies}
@@ -182,6 +232,21 @@ export default function BulkEmailClient() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Check Replies
+          </button>
+          <button
+            onClick={handleBulkFollowup}
+            disabled={sendingBulkFollowup || followupCount === 0}
+            className="flex items-center gap-2 px-4 py-2 border border-amber-300 text-amber-700 text-sm font-medium rounded-xl hover:bg-amber-50 transition-colors disabled:opacity-50 bg-amber-50"
+          >
+            <svg className={`w-4 h-4 ${sendingBulkFollowup ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {sendingBulkFollowup ? 'Sending…' : 'Bulk Follow-up'}
+            {followupCount > 0 && (
+              <span className="bg-amber-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                {followupCount}
+              </span>
+            )}
           </button>
           <button
             onClick={handleDownloadCSV}

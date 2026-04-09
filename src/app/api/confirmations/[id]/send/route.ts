@@ -17,9 +17,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
-  const { configId } = body;
+  const { configId, emailBody } = body;
 
-  const result = await sendConfirmation(id, user.userId, configId);
+  const result = await sendConfirmation(id, user.userId, configId, emailBody || undefined);
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 });

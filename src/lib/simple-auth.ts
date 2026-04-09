@@ -11,6 +11,7 @@ export interface SessionData {
   userId: string;
   username: string;
   name?: string;
+  role: string;
 }
 
 // Create a session token
@@ -48,6 +49,7 @@ export async function getSession(sessionToken: string): Promise<SessionData | nu
     userId: session.userId,
     username: session.user.username,
     name: session.user.name || undefined,
+    role: (session.user as any).role || 'user',
   };
 }
 

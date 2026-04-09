@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const record = await prisma.confirmationRecord.findFirst({
-    where: { id, userId: user.userId },
+    where: { id },
   });
   if (!record) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

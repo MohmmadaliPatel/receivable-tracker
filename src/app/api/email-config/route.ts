@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const configs = await EmailConfigService.getConfigsByUserId(user.userId);
+    const configs = await EmailConfigService.getAllConfigs();
 
     return NextResponse.json({ configs });
   } catch (error) {

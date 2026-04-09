@@ -27,7 +27,7 @@ export async function POST(
     }
 
     const { id } = await params;
-    const config = await EmailConfigService.setActiveConfig(id, user.userId);
+    const config = await EmailConfigService.setActiveConfig(id);
 
     return NextResponse.json({ config });
   } catch (error) {

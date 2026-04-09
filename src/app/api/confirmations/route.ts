@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
   const includeMetadata = searchParams.get('metadata') === 'true';
 
   const records = await listConfirmationRecords({
-    userId: user.userId,
     entityName: entityName.length ? entityName : undefined,
     category: category.length ? category : undefined,
     status: status.length ? status : undefined,
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (includeMetadata) {
-    const entityNames = await getEntityNames(user.userId);
+    const entityNames = await getEntityNames();
     return NextResponse.json({ records, entityNames, categories: CATEGORIES });
   }
 

@@ -101,7 +101,7 @@ export default function ConfirmationsClient() {
   const handleDownloadCSV = () => {
     const headers = [
       'Sr No', 'Entity Name', 'Category', 'Bank / Party', 'Account No', 'Cust ID',
-      'Email TO', 'Email CC', 'Attachment', 'Status', 'Sent At', 'Followup Sent At',
+      'Email TO', 'Email CC', 'Attachment', 'Status', 'Sent At', 'Follow-up Sent At',
       'Response At', 'Response From', 'Response Subject', 'Remarks',
       'Emails Sent Folder', 'Responses Folder',
     ];

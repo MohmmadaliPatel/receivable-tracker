@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Email Auto - Outlook Email Manager",
-  description: "Fetch and manage your Outlook emails with advanced filtering and delta sync",
+  title: "Taxteck - Email Auto Manager",
+  description: "Audit confirmation email management tool by Taxteck",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

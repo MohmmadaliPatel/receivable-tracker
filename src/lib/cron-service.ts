@@ -161,7 +161,7 @@ class CronService {
         const settings = await getOrCreateSettings(config.userId);
         if (settings.autoReplyCheck) {
           console.log(`🔍 [Cron] Checking confirmation replies for user ${config.userId}`);
-          const repliesFound = await checkRepliesForConfirmations(config.userId);
+          const repliesFound = await checkRepliesForConfirmations();
           if (repliesFound > 0) {
             console.log(`✅ [Cron] Found ${repliesFound} new confirmation replies`);
           }

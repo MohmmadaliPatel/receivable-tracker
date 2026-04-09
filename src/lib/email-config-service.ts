@@ -16,40 +16,40 @@ export interface EmailConfigData {
 }
 
 export class EmailConfigService {
-  // Get all email configurations for a user
-  static async getConfigsByUserId(userId: string) {
+  /** All configurations — shared across users (everyone can view). */
+  static async getAllConfigs() {
     return prisma.emailConfig.findMany({
-      where: { userId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  // Get active email configuration for a user
-  static async getActiveConfig(userId: string) {
+  /** @deprecated Use getAllConfigs — kept for call sites that still pass userId */
+  static async getConfigsByUserId(_userId: string) {
+    return this.getAllConfigs();
+  }
+
+  /** Active mailbox for sending / reply check (single global active config). */
+  static async getActiveConfig() {
     return prisma.emailConfig.findFirst({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { isActive: true },
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
-  // Get email configuration by ID
-  static async getConfigById(id: string, userId: string) {
+  /** @deprecated Use getActiveConfig() */
+  static async getActiveConfigForUser(_userId: string) {
+    return this.getActiveConfig();
+  }
+
+  static async getConfigById(id: string) {
     return prisma.emailConfig.findFirst({
-      where: {
-        id,
-        userId,
-      },
+      where: { id },
     });
   }
 
-  // Create new email configuration
   static async createConfig(userId: string, data: EmailConfigData) {
-    // If this is set as active, deactivate other configs
     if (data.isActive !== false) {
       await prisma.emailConfig.updateMany({
-        where: { userId },
         data: { isActive: false },
       });
     }
@@ -63,63 +63,40 @@ export class EmailConfigService {
     });
   }
 
-  // Update email configuration
-  static async updateConfig(id: string, userId: string, data: Partial<EmailConfigData>) {
-    // If setting this as active, deactivate other configs
+  static async updateConfig(id: string, data: Partial<EmailConfigData>) {
     if (data.isActive === true) {
       await prisma.emailConfig.updateMany({
-        where: {
-          userId,
-          id: { not: id },
-        },
+        where: { id: { not: id } },
         data: { isActive: false },
       });
     }
 
-    // Build update data, filtering out undefined values
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     Object.keys(data).forEach((key) => {
-      if (data[key as keyof EmailConfigData] !== undefined) {
-        updateData[key] = data[key as keyof EmailConfigData];
-      }
+      const v = data[key as keyof EmailConfigData];
+      if (v !== undefined) updateData[key] = v;
     });
 
     return prisma.emailConfig.update({
-      where: {
-        id,
-        userId: userId, // Ensure user owns this config
-      },
-      data: updateData,
+      where: { id },
+      data: updateData as Record<string, unknown>,
     });
   }
 
-  // Delete email configuration
-  static async deleteConfig(id: string, userId: string) {
+  static async deleteConfig(id: string) {
     return prisma.emailConfig.delete({
-      where: {
-        id,
-        userId: userId, // Ensure user owns this config
-      },
+      where: { id },
     });
   }
 
-  // Set active configuration
-  static async setActiveConfig(id: string, userId: string) {
-    // Deactivate all other configs
+  static async setActiveConfig(id: string) {
     await prisma.emailConfig.updateMany({
-      where: {
-        userId,
-        id: { not: id },
-      },
+      where: { id: { not: id } },
       data: { isActive: false },
     });
 
-    // Activate this config
     return prisma.emailConfig.update({
-      where: {
-        id,
-        userId,
-      },
+      where: { id },
       data: { isActive: true },
     });
   }
