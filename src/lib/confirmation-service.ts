@@ -248,18 +248,19 @@ export async function saveEmailToResponsesFolder(
   htmlContent: string,
   basePath: string = 'emails',
   bankName: string = ''   // used to route into the correct thread folder
-): Promise<{ filePath: string; relativePath: string }> {
+): Promise<{ filePath: string; relativePath: string; filenameBase: string }> {
   const { threadFolder, threadRelative } = buildFolderPaths(entityName, category, basePath, bankName);
   ensureDir(threadFolder);
   const safeSender = sanitizePath(fromEmail || 'response');
   const ts = timestampPrefix();
-  const filename = `${ts}_RESP_from-${safeSender}.pdf`;
+  const filenameBase = `${ts}_RESP_from-${safeSender}`;
+  const filename = `${filenameBase}.pdf`;
   const fullPath = path.join(threadFolder, filename);
   const fullHtml = wrapEmailHtml(subject, htmlContent, {
     entityName, category, fromEmail, bankName, type: 'received',
   });
   await htmlToPdf(fullHtml, fullPath);
-  return { filePath: fullPath, relativePath: path.join(threadRelative, filename) };
+  return { filePath: fullPath, relativePath: path.join(threadRelative, filename), filenameBase };
 }
 
 // Wrap raw email body in a full print-ready HTML document
@@ -327,6 +328,11 @@ function wrapEmailHtml(
   <button class="print-btn" onclick="window.print()">🖨️ Save as PDF / Print</button>
 </body>
 </html>`;
+}
+
+/** Sibling .eml path for a saved confirmation PDF (same folder, same basename). */
+export function emlPathBesidePdf(pdfFullPath: string): string {
+  return pdfFullPath.replace(/\.pdf$/i, '.eml');
 }
 
 // Read a saved email file (for viewing in the UI)
@@ -460,6 +466,28 @@ async function fetchSentMessage(
   }
 }
 
+/** Best-effort: save Graph MIME next to the PDF (same basename, .eml). */
+async function trySaveEmlBesidePdf(
+  config: EmailConfig,
+  messageId: string | undefined,
+  pdfFullPath: string,
+  filenameBase: string
+): Promise<void> {
+  if (!messageId?.trim()) return;
+  const mime = await GraphMailService.getMessageMimeValue(config, messageId);
+  if (!mime?.length) {
+    console.warn('[Confirmation] No MIME returned for message id; EML not saved');
+    return;
+  }
+  const emlPath = path.join(path.dirname(pdfFullPath), `${filenameBase}.eml`);
+  try {
+    fs.writeFileSync(emlPath, mime);
+    console.log('[Confirmation] Saved EML:', emlPath);
+  } catch (err) {
+    console.warn('[Confirmation] Failed to write EML file:', err);
+  }
+}
+
 // Send a confirmation email for a record
 export async function sendConfirmation(
   recordId: string,
@@ -507,7 +535,7 @@ export async function sendConfirmation(
     const sentMsg = await fetchSentMessage(config, subject, sendTime);
 
     // Save to folder with CONF prefix
-    const { filePath } = await saveEmailToSentFolder(
+    const { filePath, filenameBase } = await saveEmailToSentFolder(
       record.entityName,
       record.category,
       record.bankName || 'email',
@@ -516,6 +544,8 @@ export async function sendConfirmation(
       settings.emailSaveBasePath,
       'CONF'
     );
+
+    await trySaveEmlBesidePdf(config, sentMsg?.messageId, filePath, filenameBase);
 
     // Thread folder path (single folder for all emails in this confirmation)
     const { threadRelative } = buildFolderPaths(
@@ -642,6 +672,8 @@ export async function sendFollowup(
       settings.emailSaveBasePath,
       fuLabel
     );
+
+    await trySaveEmlBesidePdf(config, followupMsg?.messageId, filePath, filenameBase);
 
     // Append to followupsJson history
     const existingHistory: Array<{ sentAt: string; messageId: string | null; filePath: string; subject: string; followupNumber: number }> =
@@ -970,12 +1002,14 @@ async function checkRepliesForMailboxGroup(config: EmailConfig, pendingRecords: 
       // Response goes into the SAME thread folder as the confirmation email:
       //   emails/{Entity}/{Category}/{BankName}/
       // This makes the connection obvious when browsing files.
-      const { filePath } = await saveEmailToResponsesFolder(
+      const { filePath, filenameBase } = await saveEmailToResponsesFolder(
         record.entityName, record.category,
         fromEmail || 'unknown', replyMsg.subject || '',
         bodyContent, settings.emailSaveBasePath,
         record.bankName || ''
       );
+
+      await trySaveEmlBesidePdf(config, replyMsg.id, filePath, filenameBase);
 
       const isBodyHtml = bodyContentType.toLowerCase() === 'html';
 

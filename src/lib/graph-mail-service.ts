@@ -228,6 +228,26 @@ export class GraphMailService {
     }
   }
 
+  /** Raw RFC 822 MIME for the message (save as .eml). Requires Mail.Read on the mailbox. */
+  static async getMessageMimeValue(config: EmailConfig, messageId: string): Promise<Buffer | null> {
+    try {
+      const accessToken = await GraphMailService.getAccessToken(config);
+      const userPrincipal = encodeURIComponent(config.fromEmail);
+      const mid = encodeURIComponent(messageId);
+      const url = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${mid}/$value`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error(`[Graph] getMessageMimeValue HTTP ${res.status}:`, err.substring(0, 500));
+        return null;
+      }
+      return Buffer.from(await res.arrayBuffer());
+    } catch (e) {
+      console.error('[Graph] getMessageMimeValue:', e);
+      return null;
+    }
+  }
+
   // Validate configuration by attempting to get a token
   static async validateConfig(config: EmailConfig): Promise<{ valid: boolean; error?: string }> {
     try {

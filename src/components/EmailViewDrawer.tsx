@@ -209,7 +209,7 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
               }
             }
           } else {
-            const res = await fetch(`/api/confirmations/${record.id}/email-file?type=followup`);
+            const res = await fetch(`/api/confirmations/${record.id}/email-file?type=followup&followupNumber=${fuNum}`);
             if (cancelled || gen !== loadGenerationRef.current) return;
             const ct = res.headers.get('content-type') ?? '';
             if (ct.includes('application/pdf')) {
@@ -295,6 +295,23 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
       hour: '2-digit', minute: '2-digit',
     });
   };
+
+  const emlDownloadHref =
+    activeTab === 'sent' && record.sentEmailFilePath?.endsWith('.pdf')
+      ? `/api/confirmations/${record.id}/email-file?type=sent&format=eml`
+      : activeTab.startsWith('followup-')
+        ? (() => {
+            const fuNum = parseInt(activeTab.replace('followup-', ''), 10);
+            const entry = followups.find((f) => f.followupNumber === fuNum);
+            if (entry?.filePath?.endsWith('.pdf')) {
+              return `/api/confirmations/${record.id}/email-file?type=followup&format=eml&followupNumber=${fuNum}`;
+            }
+            if (record.followupEmailFilePath?.endsWith('.pdf')) {
+              return `/api/confirmations/${record.id}/email-file?type=followup&format=eml`;
+            }
+            return null;
+          })()
+        : null;
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -384,6 +401,17 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
               </svg>
               Download PDF
             </button>
+          )}
+          {activeTab !== 'response' && activeTab !== 'trail' && emlDownloadHref && (
+            <a
+              href={emlDownloadHref}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg my-1 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download .eml
+            </a>
           )}
         </div>
 
@@ -608,13 +636,23 @@ function ResponseTabContent({
 
       {/* Response header */}
       <div className="bg-green-600 text-white px-6 py-4">
-        <div className="flex items-center gap-2 mb-3">
-          <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-          </svg>
-          <span className="font-semibold text-lg">
-            {responses.length > 1 ? `Response #${activeResponseIdx + 1} of ${responses.length}` : 'Reply Received'}
-          </span>
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            <span className="font-semibold text-lg">
+              {responses.length > 1 ? `Response #${activeResponseIdx + 1} of ${responses.length}` : 'Reply Received'}
+            </span>
+          </div>
+          {resp.filePath?.endsWith('.pdf') && (
+            <a
+              href={`/api/confirmations/${record.id}/email-file?type=response&format=eml&responseIndex=${activeResponseIdx}`}
+              className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white border border-white/30 transition-colors"
+            >
+              Download .eml
+            </a>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
           <div>

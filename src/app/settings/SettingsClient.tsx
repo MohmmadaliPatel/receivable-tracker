@@ -13,21 +13,19 @@ interface AppSettings {
 function FolderPathPreview({ basePath }: { basePath: string }) {
   const entity = 'Clean Max IPP 4 Power Private Limited';
   const category = 'Bank Balances and FDs';
-  const sentPath = `${basePath}/${entity}/${category}/Emails Sent/`;
-  const responsesPath = `${basePath}/${entity}/${category}/Responses Received/`;
+  const bank = 'HDFC Bank';
+  const threadPath = `${basePath}/${entity}/${category}/${bank}/`;
 
   return (
     <div className="mt-3 p-4 bg-gray-900 rounded-xl text-xs font-mono text-gray-300 space-y-1.5">
-      <p className="text-gray-500 mb-2"># Example folder structure:</p>
+      <p className="text-gray-500 mb-2"># Example: one folder per entity / category / bank holds sent mail, follow-ups, and responses:</p>
       <div className="flex items-start gap-2">
         <span className="text-blue-400 flex-shrink-0">📁</span>
-        <span className="text-green-400 break-all">{sentPath}</span>
+        <span className="text-green-400 break-all">{threadPath}</span>
       </div>
-      <div className="flex items-start gap-2">
-        <span className="text-blue-400 flex-shrink-0">📁</span>
-        <span className="text-amber-400 break-all">{responsesPath}</span>
-      </div>
-      <p className="text-gray-600 mt-2 text-xs italic">Files are saved as: YYYY-MM-DD_HH-mm_BankName.html</p>
+      <p className="text-gray-600 mt-2 text-xs italic">
+        Each send/save produces a print-ready PDF plus, when Microsoft Graph returns MIME, a sibling .eml (RFC 822) you can open in Outlook, Apple Mail, or Thunderbird.
+      </p>
     </div>
   );
 }
@@ -207,16 +205,10 @@ export default function SettingsClient() {
                 color: 'bg-purple-50 border-purple-200 text-purple-700',
               },
               {
-                level: 'Level 3a',
-                desc: 'Emails Sent — original + follow-up emails',
-                example: 'Emails Sent/2026-04-06_10-30_HDFC_Bank.html',
+                level: 'Level 3',
+                desc: 'Bank / confirming party — sent mail, reminders, and replies live together here',
+                example: 'HDFC Bank/2026-04-06_10-30_CONF.pdf + .eml',
                 color: 'bg-amber-50 border-amber-200 text-amber-700',
-              },
-              {
-                level: 'Level 3b',
-                desc: 'Responses Received — replies from banks/parties',
-                example: 'Responses Received/2026-04-08_14-15_xxxx@hdfcbank.com.html',
-                color: 'bg-green-50 border-green-200 text-green-700',
               },
             ].map((item) => (
               <div key={item.level} className={`flex items-start gap-4 p-4 rounded-xl border ${item.color}`}>
@@ -229,10 +221,12 @@ export default function SettingsClient() {
             ))}
           </div>
           <div className="mt-4 p-4 bg-gray-50 rounded-xl text-xs text-gray-500">
-            <p className="font-medium text-gray-600 mb-1">File format</p>
-            <p>Each email is saved as an HTML file with full styling. Open any .html file in a browser to view it, or use the in-app viewer for PDF export. Files are named as:</p>
+            <p className="font-medium text-gray-600 mb-1">File formats</p>
+            <p>
+              Each message is saved as a PDF for in-app viewing and printing. When Graph returns the raw MIME, a sibling <code className="bg-gray-100 px-1 rounded">.eml</code> file is stored (same basename) — the mailbox copy, suitable for Outlook or any standard mail client.
+            </p>
             <code className="block mt-2 bg-white border border-gray-200 px-3 py-2 rounded-lg font-mono">
-              YYYY-MM-DD_HH-mm_BankOrPartyName.html
+              YYYY-MM-DD_HH-mm_CONF.pdf &nbsp;·&nbsp; YYYY-MM-DD_HH-mm_CONF.eml
             </code>
           </div>
         </div>
