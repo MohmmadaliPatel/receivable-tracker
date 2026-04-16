@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { htmlEmailToPlainText, plainTextToHtmlBody, plainTextsEqual } from '@/lib/email-plain-text';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { emailHtmlEquals } from '@/lib/email-plain-text';
 
 interface RecordPreview {
   id: string;
@@ -24,9 +24,8 @@ interface EditableRecord extends RecordPreview {
 interface CategoryGroup {
   category: string;
   records: EditableRecord[];
-  htmlPreview: string;
-  baselinePlainText: string;
-  bodyText: string;
+  baselineHtml: string;
+  editedHtml: string;
 }
 
 interface BulkSendResult {
@@ -61,6 +60,8 @@ export default function BulkSendModal({
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<string | null>(null);
   const [bodyMode, setBodyMode] = useState<'preview' | 'edit'>('preview');
+  const [bodyEditorNonce, setBodyEditorNonce] = useState(0);
+  const bulkEditorRef = useRef<HTMLDivElement>(null);
   const [results, setResults] = useState<BulkSendResult[]>([]);
   const [summary, setSummary] = useState<{ sent: number; failed: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +96,6 @@ export default function BulkSendModal({
 
       const categoryGroups: CategoryGroup[] = categorySet.map((cat) => {
         const html = previewData.previews?.[cat] || '<p>Preview unavailable</p>';
-        const plain = htmlEmailToPlainText(html);
         return {
           category: cat,
           records: records
@@ -107,9 +107,8 @@ export default function BulkSendModal({
               editRemarks: r.remarks || '',
               skip: false,
             })),
-          htmlPreview: html,
-          baselinePlainText: plain,
-          bodyText: plain,
+          baselineHtml: html,
+          editedHtml: html,
         };
       });
 
@@ -139,11 +138,11 @@ export default function BulkSendModal({
       }))
     );
 
-    // Per-category custom bodies when plain text was changed from baseline
+    // Per-category custom HTML bodies when changed from baseline
     const categoryBodies: Record<string, string> = {};
     for (const g of groups) {
-      if (!plainTextsEqual(g.bodyText, g.baselinePlainText)) {
-        categoryBodies[g.category] = plainTextToHtmlBody(g.bodyText);
+      if (!emailHtmlEquals(g.editedHtml, g.baselineHtml)) {
+        categoryBodies[g.category] = g.editedHtml;
       }
     }
 
@@ -181,9 +180,7 @@ export default function BulkSendModal({
 
   const activePreviewHtml = useMemo(() => {
     if (!activeGroup) return '';
-    return plainTextsEqual(activeGroup.bodyText, activeGroup.baselinePlainText)
-      ? activeGroup.htmlPreview
-      : plainTextToHtmlBody(activeGroup.bodyText);
+    return activeGroup.editedHtml;
   }, [activeGroup]);
 
   const updateRecord = (recordId: string, updates: Partial<EditableRecord>) => {
@@ -194,6 +191,19 @@ export default function BulkSendModal({
       }))
     );
   };
+
+  // Sync bulk body editor when switching category/mode/reset (not on every HTML keystroke).
+  useEffect(() => {
+    if (bodyMode !== 'edit' || !activeCategory || step !== 'preview') return;
+    const g = groups.find((x) => x.category === activeCategory);
+    if (!g) return;
+    const id = requestAnimationFrame(() => {
+      if (!bulkEditorRef.current) return;
+      bulkEditorRef.current.innerHTML = g.editedHtml;
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- groups.editedHtml omitted while typing
+  }, [bodyMode, activeCategory, bodyEditorNonce, step]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -288,7 +298,7 @@ export default function BulkSendModal({
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-gray-500">EMAIL BODY</span>
                         <span className="text-xs text-gray-400">— applies to all records in this category</span>
-                        {!plainTextsEqual(activeGroup.bodyText, activeGroup.baselinePlainText) && (
+                        {!emailHtmlEquals(activeGroup.editedHtml, activeGroup.baselineHtml) && (
                           <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Edited</span>
                         )}
                       </div>
@@ -307,18 +317,20 @@ export default function BulkSendModal({
                             bodyMode === 'edit' ? 'bg-blue-600 text-white font-medium' : 'text-gray-500 hover:text-gray-700'
                           }`}
                         >
-                          Edit text
+                          Edit
                         </button>
-                        {!plainTextsEqual(activeGroup.bodyText, activeGroup.baselinePlainText) && (
+                        {!emailHtmlEquals(activeGroup.editedHtml, activeGroup.baselineHtml) && (
                           <button
+                            type="button"
                             onClick={() => {
                               setGroups((prev) =>
                                 prev.map((g) =>
                                   g.category === activeCategory
-                                    ? { ...g, bodyText: g.baselinePlainText }
+                                    ? { ...g, editedHtml: g.baselineHtml }
                                     : g
                                 )
                               );
+                              setBodyEditorNonce((n) => n + 1);
                             }}
                             className="px-2.5 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
                           >
@@ -338,18 +350,21 @@ export default function BulkSendModal({
                           sandbox="allow-same-origin"
                         />
                       ) : (
-                        <textarea
-                          value={activeGroup.bodyText}
-                          onChange={(e) => {
-                            const t = e.target.value;
+                        <div
+                          ref={bulkEditorRef}
+                          role="textbox"
+                          aria-multiline
+                          contentEditable
+                          suppressContentEditableWarning
+                          className="w-full h-full px-3 py-2 text-sm text-gray-800 border-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 overflow-y-auto [&_a]:text-blue-600 [&_a]:underline"
+                          onInput={(e) => {
+                            const html = (e.currentTarget as HTMLDivElement).innerHTML;
                             setGroups((prev) =>
                               prev.map((g) =>
-                                g.category === activeCategory ? { ...g, bodyText: t } : g
+                                g.category === activeCategory ? { ...g, editedHtml: html } : g
                               )
                             );
                           }}
-                          className="w-full h-full px-3 py-2 text-sm text-gray-800 border-none focus:outline-none focus:ring-0 resize-none"
-                          placeholder="Edit the email message text for this category…"
                         />
                       )}
                     </div>

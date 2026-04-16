@@ -40,3 +40,10 @@ export function plainTextToHtmlBody(text: string): string {
 export function plainTextsEqual(a: string, b: string): boolean {
   return a.replace(/\r\n/g, '\n').trim() === b.replace(/\r\n/g, '\n').trim();
 }
+
+/** Loose compare for whether HTML email body was meaningfully changed (whitespace-insensitive). */
+export function emailHtmlEquals(a: string, b: string): boolean {
+  const norm = (s: string) =>
+    s.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+  return norm(a) === norm(b);
+}

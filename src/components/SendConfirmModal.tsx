@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ConfirmationRecord } from './ConfirmationTable';
-import { htmlEmailToPlainText, plainTextToHtmlBody, plainTextsEqual } from '@/lib/email-plain-text';
+import { emailHtmlEquals } from '@/lib/email-plain-text';
 
 interface SendConfirmModalProps {
   record: ConfirmationRecord;
@@ -15,30 +15,40 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
   const [emailTo, setEmailTo] = useState(record.emailTo);
   const [emailCc, setEmailCc] = useState(record.emailCc || '');
   const [remarks, setRemarks] = useState(record.remarks || '');
-  const [sourceHtml, setSourceHtml] = useState<string>('');
-  const [baselinePlainText, setBaselinePlainText] = useState<string>('');
-  const [bodyText, setBodyText] = useState<string>('');
+  const [baselineHtml, setBaselineHtml] = useState<string>('');
+  const [editedHtml, setEditedHtml] = useState<string>('');
   const [bodyMode, setBodyMode] = useState<'preview' | 'edit'>('preview');
   const [loadingBody, setLoadingBody] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const isFollowup = mode === 'followup';
 
   useEffect(() => {
     setLoadingBody(true);
+    setBodyMode('preview');
     fetch(`/api/confirmations/${record.id}/preview`)
       .then((r) => r.json())
       .then((data) => {
         const html = data.html || '';
-        setSourceHtml(html);
-        const plain = htmlEmailToPlainText(html);
-        setBaselinePlainText(plain);
-        setBodyText(plain);
+        setBaselineHtml(html);
+        setEditedHtml(html);
       })
       .catch(() => {})
       .finally(() => setLoadingBody(false));
   }, [record.id]);
+
+  // Sync contenteditable when opening the editor or after load (not on every keystroke — omit editedHtml from deps).
+  useEffect(() => {
+    if (bodyMode !== 'edit' || loadingBody) return;
+    const id = requestAnimationFrame(() => {
+      if (!editorRef.current) return;
+      editorRef.current.innerHTML = editedHtml;
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editedHtml omitted: browser owns DOM while typing
+  }, [bodyMode, loadingBody, record.id]);
 
   const handleSend = async () => {
     if (!emailTo.trim()) {
@@ -52,22 +62,13 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
         emailTo: emailTo.trim(),
         emailCc: emailCc.trim(),
         remarks: remarks.trim(),
-        emailBody: plainTextsEqual(bodyText, baselinePlainText)
-          ? undefined
-          : plainTextToHtmlBody(bodyText),
+        emailBody: emailHtmlEquals(editedHtml, baselineHtml) ? undefined : editedHtml,
       });
     } catch (err: any) {
       setError(err.message || 'Failed to send');
       setSending(false);
     }
   };
-
-  const previewHtml = useMemo(() => {
-    if (!sourceHtml) return '';
-    return plainTextsEqual(bodyText, baselinePlainText)
-      ? sourceHtml
-      : plainTextToHtmlBody(bodyText);
-  }, [sourceHtml, bodyText, baselinePlainText]);
 
   const subject = isFollowup
     ? `Reminder: ${record.entityName}: Balance Confirmations for the year ending 31 March 2026`
@@ -180,6 +181,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
               <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Email Body</span>
               <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
                 <button
+                  type="button"
                   onClick={() => setBodyMode('preview')}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                     bodyMode === 'preview'
@@ -190,6 +192,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                   Preview
                 </button>
                 <button
+                  type="button"
                   onClick={() => setBodyMode('edit')}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                     bodyMode === 'edit'
@@ -197,7 +200,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Edit text
+                  Edit
                 </button>
               </div>
             </div>
@@ -208,7 +211,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
               </div>
             ) : bodyMode === 'preview' ? (
               <iframe
-                srcDoc={previewHtml}
+                srcDoc={editedHtml}
                 className="w-full border-none"
                 style={{ height: '260px' }}
                 title="Email body preview"
@@ -216,16 +219,19 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
               />
             ) : (
               <div className="relative">
-                <textarea
-                  value={bodyText}
-                  onChange={(e) => setBodyText(e.target.value)}
-                  rows={12}
-                  className="w-full px-4 py-3 text-sm text-gray-800 border-none focus:outline-none focus:ring-0 resize-y"
-                  placeholder="Edit the email message text…"
+                <div
+                  ref={editorRef}
+                  role="textbox"
+                  aria-multiline
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="w-full px-4 py-3 text-sm text-gray-800 border-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 min-h-[260px] max-h-[360px] overflow-y-auto [&_a]:text-blue-600 [&_a]:underline"
                   style={{ minHeight: '260px' }}
+                  onInput={(e) => setEditedHtml((e.currentTarget as HTMLDivElement).innerHTML)}
                 />
                 <div className="absolute bottom-2 right-2">
                   <button
+                    type="button"
                     onClick={() => setBodyMode('preview')}
                     className="text-xs text-blue-600 hover:text-blue-800 bg-white border border-blue-200 rounded px-2 py-1 shadow-sm"
                   >
@@ -252,6 +258,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
           </p>
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={onClose}
               disabled={sending}
               className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
@@ -259,6 +266,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleSend}
               disabled={sending || !emailTo.trim()}
               className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-xl transition-colors disabled:opacity-50 shadow-sm ${
