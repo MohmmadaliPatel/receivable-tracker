@@ -178,17 +178,32 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Bulk delete via request body
+    // Bulk delete via request body: { deleteAll: true } or { ids: string[] }
     try {
       const body = await request.json();
-      const ids: string[] = body.ids;
+      const deleteAll = body?.deleteAll === true;
+      const ids: unknown = body?.ids;
+
+      if (deleteAll) {
+        if (Array.isArray(ids) && ids.length > 0) {
+          return NextResponse.json(
+            { error: 'Cannot combine deleteAll with ids' },
+            { status: 400 }
+          );
+        }
+        const result = await prisma.customerEmailEntry.deleteMany({
+          where: { userId: user.id },
+        });
+        return NextResponse.json({ success: true, deleted: result.count });
+      }
+
       if (!Array.isArray(ids) || ids.length === 0) {
         return NextResponse.json({ error: 'Missing email ID(s)' }, { status: 400 });
       }
 
       const result = await prisma.customerEmailEntry.deleteMany({
         where: {
-          id: { in: ids },
+          id: { in: ids as string[] },
           userId: user.id,
         },
       });

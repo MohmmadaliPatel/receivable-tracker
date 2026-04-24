@@ -31,12 +31,12 @@ export default function Sidebar({ user }: SidebarProps) {
 
   const menuItems: { name: string; href: string; Icon: LucideIcon }[] = [
     { name: 'Dashboard', href: '/', Icon: LayoutDashboard },
-    { name: 'Bulk Email', href: '/bulk-email', Icon: Mails },
-    { name: 'Attachments', href: '/aging-attachments', Icon: Paperclip },
-    { name: 'Invoices', href: '/invoices', Icon: FileText },
+    { name: 'Ageing snapshots', href: '/ageing-snapshots', Icon: Inbox },
     { name: 'Customer emails', href: '/customer-emails', Icon: IdCard },
     { name: 'Excluded customers', href: '/excluded-customers', Icon: UserX },
-    { name: 'Ageing snapshots', href: '/ageing-snapshots', Icon: Inbox },
+    { name: 'Invoices', href: '/invoices', Icon: FileText },
+    { name: 'Bulk Email', href: '/bulk-email', Icon: Mails },
+    { name: 'Attachments', href: '/aging-attachments', Icon: Paperclip },
     { name: 'Email Configuration', href: '/email-config', Icon: Cog },
     { name: 'Settings', href: '/settings', Icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'User Management', href: '/users', Icon: Users }] : []),

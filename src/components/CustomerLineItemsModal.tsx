@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBucketSortDaysFromMaxDaysField } from '@/lib/aging-bucket-utils';
 
 type Row = {
@@ -12,8 +12,6 @@ type Row = {
   amount: number;
   emailsSent: number;
   lastSentAt: string | null;
-  status: string;
-  hasResponse: boolean;
 };
 
 function formatInr(n: number): string {
@@ -77,6 +75,15 @@ export default function CustomerLineItemsModal({ open, onClose, customerCode, cu
     }
   }, [customerCode]);
 
+  const displayRows = useMemo(
+    () =>
+      [...rows].sort(
+        (a, b) =>
+          getBucketSortDaysFromMaxDaysField(b.bucket) - getBucketSortDaysFromMaxDaysField(a.bucket),
+      ),
+    [rows],
+  );
+
   useEffect(() => {
     if (open && customerCode) {
       void load();
@@ -95,19 +102,28 @@ export default function CustomerLineItemsModal({ open, onClose, customerCode, cu
     return () => window.removeEventListener('keydown', h);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 overflow-hidden overscroll-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="customer-line-items-title"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[85vh] flex flex-col border border-gray-200/90">
-        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-100">
-          <div>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[85vh] flex flex-col border border-gray-200/90 min-h-0">
+        <div className="shrink-0 flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-100">
+          <div className="flex-1 min-w-0">
             <h2 id="customer-line-items-title" className="text-base font-semibold text-gray-900">
               {customerName}
               <span className="text-gray-500 font-normal text-sm ml-2 tabular-nums">
@@ -115,37 +131,48 @@ export default function CustomerLineItemsModal({ open, onClose, customerCode, cu
               </span>
             </h2>
             {importLabel && <p className="text-xs text-gray-500 mt-1">Latest import: {importLabel}</p>}
+            <p className="text-xs text-gray-400 mt-1.5">Sorted by furthest bucket first.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 text-gray-400 hover:text-gray-700 text-2xl leading-none px-1"
+            className="shrink-0 text-gray-400 hover:text-gray-700 text-2xl leading-none px-1 self-start"
             aria-label="Close"
           >
             &times;
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 px-5 py-3">
-          {loading && <p className="text-sm text-gray-500 text-center py-8">Loading…</p>}
-          {error && <p className="text-sm text-red-600 py-2">{error}</p>}
-          {!loading && !error && rows.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-8">No line items for this customer.</p>
-          )}
-          {!loading && rows.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border border-gray-200/80">
-              <table className="w-full text-sm text-left">
+        <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden px-5 pt-3 pb-3">
+          <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-auto overscroll-y-contain [scrollbar-gutter:stable]">
+            {loading && <p className="text-sm text-gray-500 text-center py-8">Loading…</p>}
+            {error && <p className="text-sm text-red-600 py-2">{error}</p>}
+            {!loading && !error && displayRows.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-8">No line items for this customer.</p>
+            )}
+            {!loading && displayRows.length > 0 && (
+            <div className="rounded-lg border border-gray-200/80 min-w-0 w-full">
+              <table className="w-full text-sm text-left border-separate border-spacing-0">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
-                    <th className="px-3 py-2.5 font-medium">Doc no</th>
-                    <th className="px-3 py-2.5 font-medium">Bucket</th>
-                    <th className="px-3 py-2.5 font-medium text-right">Amount</th>
-                    <th className="px-3 py-2.5 font-medium text-right">Emails</th>
-                    <th className="px-3 py-2.5 font-medium">Last sent</th>
-                    <th className="px-3 py-2.5 font-medium">Status</th>
+                  <tr className="text-xs text-gray-500 uppercase tracking-wide">
+                    <th className="sticky top-0 z-10 px-3 py-2.5 font-medium text-left bg-white shadow-[inset_0_-1px_0_0_rgb(243_244_246)]">
+                      Doc no
+                    </th>
+                    <th className="sticky top-0 z-10 px-3 py-2.5 font-medium text-left bg-white shadow-[inset_0_-1px_0_0_rgb(243_244_246)]">
+                      Bucket
+                    </th>
+                    <th className="sticky top-0 z-10 px-3 py-2.5 font-medium text-right bg-white shadow-[inset_0_-1px_0_0_rgb(243_244_246)]">
+                      Amount
+                    </th>
+                    <th className="sticky top-0 z-10 px-3 py-2.5 font-medium text-right bg-white shadow-[inset_0_-1px_0_0_rgb(243_244_246)]">
+                      Emails
+                    </th>
+                    <th className="sticky top-0 z-10 px-3 py-2.5 font-medium text-left bg-white shadow-[inset_0_-1px_0_0_rgb(243_244_246)]">
+                      Last sent
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {displayRows.map((r) => (
                     <tr key={r.invoiceKey} className="border-b border-gray-50 last:border-0">
                       <td className="px-3 py-2 text-gray-900 tabular-nums">{r.documentNo}</td>
                       <td className="px-3 py-2">
@@ -164,18 +191,13 @@ export default function CustomerLineItemsModal({ open, onClose, customerCode, cu
                       <td className="px-3 py-2 text-gray-600 text-xs">
                         {r.lastSentAt ? new Date(r.lastSentAt).toLocaleString() : '—'}
                       </td>
-                      <td className="px-3 py-2 text-gray-800">
-                        {r.status}
-                        {r.hasResponse && (
-                          <span className="ml-1.5 text-emerald-600 text-xs">(reply)</span>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

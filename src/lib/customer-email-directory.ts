@@ -454,7 +454,7 @@ export async function buildCustomerEmailsExport(
   const entries = await getCustomerEmails(userId, { keyType });
 
   if (keyType === 'customer_name') {
-    let csv = 'Customer Name,Company Name,Email To,Email Cc\n';
+    let csv = 'Customer Name,Customer name,Email To,Email Cc\n';
     for (const entry of entries) {
       const name = escapeCsvValue(entry.keyValue);
       const company = escapeCsvValue(entry.companyName || '');
@@ -479,7 +479,7 @@ export async function buildCustomerEmailsExport(
     }
   }
 
-  let csv = 'Customer Name,Customer Code,Company Name,Email To,Email Cc\n';
+  let csv = 'Customer Name,Customer Code,Customer name,Email To,Email Cc\n';
   for (const entry of entries) {
     const displayName = nameByCode.get(entry.keyValue) || '';
     const name = escapeCsvValue(displayName);
@@ -533,7 +533,15 @@ export async function importCustomerEmailsFromCsv(
   };
 
   const keyIndex = findKeyColumn();
-  const companyIndex = header.findIndex((h) => h.includes('company'));
+  const companyIndex = (() => {
+    const byCompany = header.findIndex((h) => h.includes('company'));
+    if (byCompany >= 0) return byCompany;
+    if (keyType === 'customer_name' && keyIndex >= 0) {
+      const secondName = header.findIndex((h, idx) => h === 'customer name' && idx !== keyIndex);
+      if (secondName >= 0) return secondName;
+    }
+    return -1;
+  })();
   const emailToIndex = header.findIndex(
     (h) => h === 'email to' || h.includes('emailto') || (h.includes('email') && !h.includes('cc'))
   );

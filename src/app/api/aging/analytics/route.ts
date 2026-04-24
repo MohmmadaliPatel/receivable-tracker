@@ -23,11 +23,26 @@ export async function GET(request: NextRequest) {
     const latestImport = await prisma.agingImport.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        fileName: true,
+        createdAt: true,
+        snapshotDate: true,
+        customerCount: true,
+        openInvoiceCount: true,
+        totalOutstandingAtImport: true,
+        comparedToImportId: true,
+        kpiGeneratedAt: true,
+        metricsJson: true,
+        bucketsJson: true,
+        storedRowCount: true,
+      },
     });
 
     if (!latestImport) {
       return NextResponse.json({
         hasImport: false,
+        snapshotKpi: null,
         invoiceCountLatest: 0,
         outstandingInvoices: 0,
         responseReceived: 0,
@@ -314,6 +329,98 @@ export async function GET(request: NextRequest) {
           getBucketSortDaysFromMaxDaysField(a.bucket) - getBucketSortDaysFromMaxDaysField(b.bucket),
       );
 
+    let snapshotKpi: {
+      latest: {
+        importId: string;
+        fileName: string;
+        createdAt: string;
+        snapshotDate: string | null;
+        openInvoiceCount: number | null;
+        customerCount: number | null;
+        /** All parsed rows in file (includes excluded / internal). */
+        storedRowCount: number | null;
+        totalOutstandingAtImport: number | null;
+        comparedToImportId: string | null;
+        kpiGeneratedAt: string | null;
+        metrics: Record<string, unknown> | null;
+      };
+      history: Array<{
+        importId: string;
+        fileName: string;
+        createdAt: string;
+        totalOutstandingAtImport: number | null;
+        openInvoiceCount: number | null;
+        customerCount: number | null;
+        deltaVsPrior: number | null;
+      }>;
+    } = {
+      latest: {
+        importId: latestImport.id,
+        fileName: latestImport.fileName,
+        createdAt: latestImport.createdAt.toISOString(),
+        snapshotDate: latestImport.snapshotDate
+          ? latestImport.snapshotDate.toISOString()
+          : null,
+        openInvoiceCount: latestImport.openInvoiceCount ?? null,
+        customerCount: latestImport.customerCount ?? null,
+        storedRowCount: latestImport.storedRowCount ?? null,
+        totalOutstandingAtImport: latestImport.totalOutstandingAtImport ?? null,
+        comparedToImportId: latestImport.comparedToImportId ?? null,
+        kpiGeneratedAt: latestImport.kpiGeneratedAt
+          ? latestImport.kpiGeneratedAt.toISOString()
+          : null,
+        metrics: null,
+      },
+      history: [],
+    };
+
+    if (latestImport.metricsJson) {
+      try {
+        snapshotKpi.latest.metrics = JSON.parse(
+          latestImport.metricsJson
+        ) as Record<string, unknown>;
+      } catch {
+        snapshotKpi.latest.metrics = null;
+      }
+    }
+
+    const historyRows = await prisma.agingImport.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        fileName: true,
+        createdAt: true,
+        totalOutstandingAtImport: true,
+        openInvoiceCount: true,
+        customerCount: true,
+        metricsJson: true,
+      },
+    });
+    snapshotKpi.history = historyRows.map((h) => {
+      let deltaVsPrior: number | null = null;
+      if (h.metricsJson) {
+        try {
+          const m = JSON.parse(h.metricsJson) as { deltaOutstandingVsPrior?: number };
+          if (typeof m.deltaOutstandingVsPrior === 'number') {
+            deltaVsPrior = m.deltaOutstandingVsPrior;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return {
+        importId: h.id,
+        fileName: h.fileName,
+        createdAt: h.createdAt.toISOString(),
+        totalOutstandingAtImport: h.totalOutstandingAtImport ?? null,
+        openInvoiceCount: h.openInvoiceCount ?? null,
+        customerCount: h.customerCount ?? null,
+        deltaVsPrior,
+      };
+    });
+
     return NextResponse.json({
       hasImport: true,
       importName: latestImport.fileName,
@@ -328,6 +435,7 @@ export async function GET(request: NextRequest) {
       chasedBreakdown: { byEmails, byBucket },
       customerSummary,
       companyBreakdown,
+      snapshotKpi,
     });
   } catch (error) {
     console.error('[Aging Analytics] Error:', error);

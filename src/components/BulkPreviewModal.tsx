@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { EmailAddressList } from '@/components/EmailAddressList';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import type { MultiValue } from 'react-select';
 
@@ -462,17 +463,17 @@ export default function BulkPreviewModal({
                         </td>
                         <td className="px-3 py-2 font-medium text-gray-900">{g.customerName}</td>
                         <td className="px-3 py-2 text-gray-600">{g.customerCode}</td>
-                        <td className="px-3 py-2 break-all text-sm">
-                          <div>
-                            <span className="text-gray-500">To:</span> {g.emailTo || '—'}
-                          </div>
-                          {g.emailCc ? (
-                            <div className="text-gray-600 mt-0.5">
-                              <span className="text-gray-500">Cc:</span> {g.emailCc}
-                            </div>
-                          ) : null}
+                        <td className="px-3 py-2 text-sm min-w-0 max-w-md">
+                          <EmailAddressList value={g.emailTo} label="To" className="mb-0.5" emptyLabel="—" />
+                          <EmailAddressList
+                            value={g.emailCc}
+                            label="Cc"
+                            variant="muted"
+                            emptyLabel="—"
+                            className="mt-0.5"
+                          />
                           {g.emailConflict && (
-                            <span className="ml-1 text-amber-700 text-xs">(emails differ)</span>
+                            <span className="block text-amber-700 text-xs mt-1">(emails differ)</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-gray-500">

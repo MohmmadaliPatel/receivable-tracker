@@ -276,6 +276,8 @@ model AppSettings {
   autoReplyCheck            Boolean  @default(true)   // Automatically check for replies on cron
   replyCheckIntervalMinutes Int      @default(30)      // How often to check for replies
   emailSaveBasePath         String   @default("emails") // Base folder path for saving emails
+  /** Max number of ageing snapshot imports to keep (older imports + on-disk file removed) */
+  snapshotRetentionCount    Int      @default(12)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -285,12 +287,31 @@ model AppSettings {
 // —— Receivables / ageing (bulk email + tracker) —— //
 
 model AgingImport {
-  id              String          @id @default(cuid())
-  userId          String
-  fileName        String
-  createdAt       DateTime        @default(now())
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lineItems       AgingLineItem[]
+  id                String   @id @default(cuid())
+  userId            String
+  fileName          String
+  createdAt         DateTime @default(now())
+  /** Relative path under CWD, e.g. uploads/snapshots/1700_name.xlsx */
+  sourceFilePath    String?
+  /** As-of/snapshot business date (from file or latest doc line) */
+  snapshotDate      DateTime?
+  /** JSON object: summed bucket label -> amount (portfolio totals) */
+  bucketsJson       String?
+  /** Distinct non-excluded customers in this import */
+  customerCount     Int?
+  /** All parsed rows (including excluded) for quick display */
+  storedRowCount    Int?
+  /** Denormalized: non-excluded, positive-balance line count in portfolio sense */
+  openInvoiceCount  Int?
+  /** Sum of line amounts (INR) for open receivables in this file */
+  totalOutstandingAtImport Float?
+  /** Previous `AgingImport` id when movement KPIs were calculated */
+  comparedToImportId String?
+  kpiGeneratedAt     DateTime?
+  /** JSON: new/cleared, risk, period deltas — see `aging-snapshot-metrics` */
+  metricsJson        String?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lineItems         AgingLineItem[]
   importAttachments AgingImportCustomerAttachment[]
 
   @@index([userId, createdAt])

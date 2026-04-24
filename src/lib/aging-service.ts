@@ -1,7 +1,12 @@
+import { randomUUID } from 'crypto';
 import * as XLSX from 'xlsx';
 import { prisma } from './prisma';
 import { getEmailForCustomer } from './customer-email-directory';
-import { shouldExcludeLineItem, getUserExclusionLookup } from './aging-exclusions';
+import {
+  getInternalCompanyCodes,
+  getUserExclusionLookup,
+  shouldExcludeLineItemSync,
+} from './aging-exclusions';
 
 function formatGenerationMonthFromDate(d: Date | null): string | null {
   if (!d) return null;
@@ -294,130 +299,177 @@ export function parseAgingExcel(fileBuffer: Buffer): ParsedAgingRow[] {
   return rows;
 }
 
+const CHASE_UPSERT_CHUNK = 50;
+/** 22 columns; SQLite bind limit 999 -> ~45 rows. */
+const LINE_ITEM_CREATE_CHUNK = 40;
+const CHASE_IN_QUERY_CHUNK = 500;
+
 /**
  * Import parsed rows into the database.
- * Creates AgingImport, AgingLineItems, and upserts InvoiceChases.
+ * Creates AgingImport, bulk-upserts InvoiceChases, and bulk-creates AgingLineItems.
  */
 export async function importAgingData(
   userId: string,
   fileName: string,
   rows: ParsedAgingRow[]
 ): Promise<ImportResult> {
-  // Create the import record
-  const agingImport = await prisma.agingImport.create({
-    data: {
-      userId,
-      fileName,
-    },
-  });
-  
-  let excludedCount = 0;
-  let chaseCount = 0;
+  const [exclusionLookup, internalCodes] = await Promise.all([
+    getUserExclusionLookup(userId),
+    getInternalCompanyCodes(),
+  ]);
 
-  const exclusionLookup = await getUserExclusionLookup(userId);
+  type Prepared = { row: ParsedAgingRow; isExcluded: boolean; lineId: string };
+  const prepared: Prepared[] = [];
+  const chaseByInvoiceKey = new Map<string, ParsedAgingRow>();
 
-  // Process rows in batches to avoid memory issues
-  const BATCH_SIZE = 100;
+  for (const row of rows) {
+    const isExcluded = shouldExcludeLineItemSync(
+      row.companyCode,
+      row.customerCode,
+      row.reconAccountDescription,
+      row.customerName,
+      internalCodes,
+      exclusionLookup,
+    );
+    const lineId = randomUUID();
+    prepared.push({ row, isExcluded, lineId });
+    if (row.documentNo && !isExcluded) {
+      const invoiceKey = `${row.companyCode}-${row.documentNo}`;
+      chaseByInvoiceKey.set(invoiceKey, row);
+    }
+  }
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
+  const excludedCount = prepared.filter((p) => p.isExcluded).length;
+  const chaseCount = prepared.filter((p) => p.row.documentNo && !p.isExcluded).length;
 
-    for (const row of batch) {
-      // Check if should be excluded
-      const isExcluded = await shouldExcludeLineItem(
-        row.companyCode,
-        row.customerCode,
-        row.reconAccountDescription,
-        undefined,
-        row.customerName,
-        exclusionLookup
-      );
-      
-      if (isExcluded) {
-        excludedCount++;
-      }
-      
-      // Create the line item
-      const lineItem = await prisma.agingLineItem.create({
-        data: {
-          importId: agingImport.id,
-          userId,
-          companyCode: row.companyCode,
-          companyName: row.companyName,
-          customerCode: row.customerCode,
-          customerName: row.customerName,
-          documentNo: row.documentNo,
-          refNo: row.refNo,
-          totalBalance: row.totalBalance,
-          notDue: row.notDue,
-          maxDaysBucket: row.maxDaysBucket,
-          docDate: row.docDate,
-          postingDate: row.postingDate,
-          netDueDate: row.netDueDate,
-          generationMonth:
-            row.generationMonth?.trim() ||
-            formatGenerationMonthFromDate(row.postingDate) ||
-            formatGenerationMonthFromDate(row.docDate) ||
-            null,
-          emailTo: row.emailTo,
-          emailCc: row.emailCc,
-          customerNameKey: (row.customerName || row.customerCode).toLowerCase().trim(),
-          excluded: isExcluded,
-          rowIndex: row.rowIndex,
-        },
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const agingImport = await tx.agingImport.create({
+        data: { userId, fileName },
       });
-      
-      // Upsert InvoiceChase for invoice-level tracking
-      if (row.documentNo && !isExcluded) {
-        const invoiceKey = `${row.companyCode}-${row.documentNo}`;
-        
-        const chase = await prisma.invoiceChase.upsert({
-          where: {
-            userId_invoiceKey: {
+      const importId = agingImport.id;
+
+      if (chaseByInvoiceKey.size > 0) {
+        const toUpsert = Array.from(chaseByInvoiceKey.entries()).map(([invoiceKey, r]) => ({
+          id: randomUUID(),
+          row: r,
+          invoiceKey,
+        }));
+
+        for (let c = 0; c < toUpsert.length; c += CHASE_UPSERT_CHUNK) {
+          const part = toUpsert.slice(c, c + CHASE_UPSERT_CHUNK);
+          const rowPh = new Array(15).fill('?').join(',');
+          const allPh = part.map(() => `(${rowPh})`).join(',');
+          const sql = `INSERT INTO "invoice_chases" (
+            "id", "userId", "invoiceKey", "companyCode", "companyName", "customerCode", "customerName", "documentNo",
+            "amountSnapshot", "emailTo", "emailCc", "lastImportId", "status", "emailCount", "followupCount"
+          ) VALUES ${allPh}
+          ON CONFLICT("userId", "invoiceKey") DO UPDATE SET
+            "companyCode" = excluded."companyCode",
+            "companyName" = excluded."companyName",
+            "customerCode" = excluded."customerCode",
+            "customerName" = excluded."customerName",
+            "documentNo" = excluded."documentNo",
+            "amountSnapshot" = excluded."amountSnapshot",
+            "emailTo" = CASE
+              WHEN excluded."emailTo" IS NOT NULL AND trim(excluded."emailTo") != '' THEN excluded."emailTo"
+              ELSE "invoice_chases"."emailTo" END,
+            "emailCc" = CASE
+              WHEN excluded."emailCc" IS NOT NULL AND trim(excluded."emailCc") != '' THEN excluded."emailCc"
+              ELSE "invoice_chases"."emailCc" END,
+            "lastImportId" = excluded."lastImportId"`;
+          const flat: unknown[] = [];
+          for (const u of part) {
+            const r = u.row;
+            flat.push(
+              u.id,
               userId,
-              invoiceKey,
-            },
-          },
-          create: {
+              u.invoiceKey,
+              r.companyCode,
+              r.companyName,
+              r.customerCode,
+              r.customerName,
+              r.documentNo,
+              r.totalBalance ?? null,
+              r.emailTo ?? null,
+              r.emailCc ?? null,
+              importId,
+              'outstanding',
+              0,
+              0,
+            );
+          }
+          await tx.$executeRawUnsafe(sql, ...flat);
+        }
+      }
+
+      const allKeys = Array.from(chaseByInvoiceKey.keys());
+      const idByKey = new Map<string, string>();
+      for (let k = 0; k < allKeys.length; k += CHASE_IN_QUERY_CHUNK) {
+        const keyChunk = allKeys.slice(k, k + CHASE_IN_QUERY_CHUNK);
+        const found = await tx.invoiceChase.findMany({
+          where: { userId, invoiceKey: { in: keyChunk } },
+          select: { id: true, invoiceKey: true },
+        });
+        for (const f of found) {
+          idByKey.set(f.invoiceKey, f.id);
+        }
+      }
+
+      for (let i = 0; i < prepared.length; i += LINE_ITEM_CREATE_CHUNK) {
+        const part = prepared.slice(i, i + LINE_ITEM_CREATE_CHUNK);
+        const data = part.map((p) => {
+          const { row, isExcluded, lineId } = p;
+          let invoiceChaseId: string | null = null;
+          if (row.documentNo && !isExcluded) {
+            const k = `${row.companyCode}-${row.documentNo}`;
+            const cid = idByKey.get(k);
+            if (cid) invoiceChaseId = cid;
+          }
+          return {
+            id: lineId,
+            importId,
             userId,
-            invoiceKey,
+            invoiceChaseId,
             companyCode: row.companyCode,
             companyName: row.companyName,
             customerCode: row.customerCode,
             customerName: row.customerName,
             documentNo: row.documentNo,
-            amountSnapshot: row.totalBalance,
+            refNo: row.refNo,
+            totalBalance: row.totalBalance,
+            notDue: row.notDue,
+            maxDaysBucket: row.maxDaysBucket,
+            docDate: row.docDate,
+            postingDate: row.postingDate,
+            netDueDate: row.netDueDate,
+            generationMonth:
+              row.generationMonth?.trim() ||
+              formatGenerationMonthFromDate(row.postingDate) ||
+              formatGenerationMonthFromDate(row.docDate) ||
+              null,
             emailTo: row.emailTo,
             emailCc: row.emailCc,
-            lastImportId: agingImport.id,
-            status: 'outstanding',
-          },
-          update: {
-            amountSnapshot: row.totalBalance,
-            emailTo: row.emailTo || undefined,
-            emailCc: row.emailCc || undefined,
-            lastImportId: agingImport.id,
-          },
+            customerNameKey: (row.customerName || row.customerCode).toLowerCase().trim(),
+            excluded: isExcluded,
+            rowIndex: row.rowIndex,
+          };
         });
-
-        // Link line item to chase (FK is InvoiceChase.id, not invoiceKey)
-        await prisma.agingLineItem.update({
-          where: { id: lineItem.id },
-          data: { invoiceChaseId: chase.id },
-        });
-        
-        chaseCount++;
+        await tx.agingLineItem.createMany({ data });
       }
-    }
-  }
-  
-  return {
-    importId: agingImport.id,
-    fileName,
-    lineCount: rows.length,
-    excludedCount,
-    chaseCount,
-  };
+
+      return {
+        importId: agingImport.id,
+        fileName,
+        lineCount: rows.length,
+        excludedCount,
+        chaseCount,
+      };
+    },
+    { maxWait: 60_000, timeout: 120_000 },
+  );
+
+  return result;
 }
 
 /**

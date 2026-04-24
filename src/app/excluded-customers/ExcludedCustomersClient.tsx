@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Trash2 } from 'lucide-react';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
 import type { Column } from '@/components/ui/DataTable';
 
@@ -10,6 +11,8 @@ interface ExcludedEntry {
   id: string;
   keyType: KeyT;
   keyValue: string;
+  customerName: string | null;
+  customerCode: string | null;
   reason: string | null;
   createdAt: string;
   updatedAt: string;
@@ -46,15 +49,14 @@ export default function ExcludedCustomersClient() {
   const [loading, setLoading] = useState(true);
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
   const [filterOptions, setFilterOptions] = useState<{
-    keyType: string[];
     keyValue: string[];
     reason: string[];
-  }>({ keyType: [], keyValue: [], reason: [] });
+  }>({ keyValue: [], reason: [] });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [total, setTotal] = useState(0);
   const [sortField, setSortField] = useState<
-    'keyValue' | 'keyType' | 'reason' | 'createdAt' | 'updatedAt'
+    'keyValue' | 'reason' | 'createdAt' | 'updatedAt'
   >('keyValue');
   const [sortOrder, setSortOrder] = useState<SortDir>('asc');
 
@@ -66,10 +68,7 @@ export default function ExcludedCustomersClient() {
   const [addKeyType, setAddKeyType] = useState<KeyT>('customer_code');
   const [addForm, setAddForm] = useState<FormState>({ keyValue: '', reason: '' });
 
-  // --- edit modal ---
-  const [editEntry, setEditEntry] = useState<ExcludedEntry | null>(null);
-  const [editForm, setEditForm] = useState<FormState | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ id: string; label: string } | null>(null);
 
   // --- import modal ---
   const [showImportModal, setShowImportModal] = useState(false);
@@ -92,12 +91,6 @@ export default function ExcludedCustomersClient() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      const kts = columnFilters.keyType;
-      if (kts && kts.size > 0) {
-        for (const k of kts) {
-          if (k === 'customer_name' || k === 'customer_code') params.append('keyType', k);
-        }
-      }
       const kvs = columnFilters.keyValue;
       if (kvs && kvs.size > 0) {
         for (const v of kvs) params.append('keyValue', v);
@@ -119,7 +112,6 @@ export default function ExcludedCustomersClient() {
         setTotal(data.total ?? 0);
         if (data.filterOptions) {
           setFilterOptions({
-            keyType: data.filterOptions.keyType || ['customer_name', 'customer_code'],
             keyValue: data.filterOptions.keyValue || [],
             reason: data.filterOptions.reason || [],
           });
@@ -136,8 +128,16 @@ export default function ExcludedCustomersClient() {
     loadEntries();
   }, [loadEntries]);
 
+  useEffect(() => {
+    setColumnFilters((prev) => {
+      if (!prev.keyType) return prev;
+      const { keyType: _t, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
   const onExcludedSort = (colKey: string) => {
-    const valid = ['keyValue', 'keyType', 'reason', 'createdAt', 'updatedAt'] as const;
+    const valid = ['keyValue', 'reason', 'createdAt', 'updatedAt'] as const;
     if (!valid.includes(colKey as (typeof valid)[number])) return;
     const k = colKey as (typeof valid)[number];
     if (sortField === k) {
@@ -147,32 +147,6 @@ export default function ExcludedCustomersClient() {
       setSortOrder('asc');
     }
     setPage(1);
-  };
-
-  // --- edit ---
-  const openEdit = (e: ExcludedEntry) => {
-    setMessage(null);
-    setEditEntry(e);
-    setEditForm({ keyValue: e.keyValue, reason: e.reason || '' });
-  };
-  const closeEdit = () => { setEditEntry(null); setEditForm(null); };
-
-  const handleSaveEdit = async () => {
-    if (!editEntry || !editForm) return;
-    if (!editForm.keyValue.trim()) { setMessage({ text: 'Key value is required', error: true }); return; }
-    setSavingEdit(true);
-    setMessage(null);
-    try {
-      const res = await fetch('/api/excluded-customers', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editEntry.id, keyValue: editForm.keyValue.trim(), reason: editForm.reason.trim() || null }),
-      });
-      const data = await res.json();
-      if (res.ok) { setMessage({ text: 'Saved' }); closeEdit(); await loadEntries(); }
-      else { setMessage({ text: data.error || 'Save failed', error: true }); }
-    } catch { setMessage({ text: 'Save failed', error: true }); }
-    finally { setSavingEdit(false); }
   };
 
   // --- add ---
@@ -190,14 +164,33 @@ export default function ExcludedCustomersClient() {
     } catch { setMessage({ text: 'Failed to add', error: true }); }
   };
 
-  // --- delete ---
-  const handleDelete = async (id: string) => {
-    if (!confirm('Remove this exclusion?')) return;
+  const openDeleteModal = useCallback((e: ExcludedEntry) => {
+    const label =
+      e.keyType === 'customer_name'
+        ? `Customer name: ${e.customerName || e.keyValue}`
+        : `Customer code: ${e.customerCode || e.keyValue}`;
+    setDeleteModal({ id: e.id, label });
+  }, []);
+
+  const closeDeleteModal = useCallback(() => setDeleteModal(null), []);
+
+  const runConfirmedDelete = async () => {
+    if (!deleteModal) return;
+    const { id } = deleteModal;
+    setMessage(null);
     try {
       const res = await fetch(`/api/excluded-customers?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-      if (res.ok) { setMessage({ text: 'Removed' }); if (editEntry?.id === id) closeEdit(); await loadEntries(); }
-      else { const d = await res.json(); setMessage({ text: d.error || 'Delete failed', error: true }); }
-    } catch { setMessage({ text: 'Delete failed', error: true }); }
+      if (res.ok) {
+        setMessage({ text: 'Removed' });
+        closeDeleteModal();
+        await loadEntries();
+      } else {
+        const d = await res.json();
+        setMessage({ text: d.error || 'Delete failed', error: true });
+      }
+    } catch {
+      setMessage({ text: 'Delete failed', error: true });
+    }
   };
 
   // --- export (single column) ---
@@ -366,63 +359,72 @@ export default function ExcludedCustomersClient() {
     }
   };
 
-  const excludedColumns: Column<ExcludedEntry>[] = [
-    {
-      key: 'keyValue',
-      header: 'Key',
-      sortable: true,
-      filterable: true,
-      rawValue: (e) => e.keyValue,
-      accessor: (e) => <span className="font-medium text-gray-900">{e.keyValue}</span>,
-      minWidth: '140px',
-    },
-    {
-      key: 'keyType',
-      header: 'Type',
-      sortable: true,
-      filterable: true,
-      rawValue: (e) => e.keyType,
-      accessor: (e) => <span className="text-gray-600">{labelKeyType(e.keyType)}</span>,
-      minWidth: '120px',
-    },
-    {
-      key: 'reason',
-      header: 'Reason',
-      sortable: true,
-      filterable: true,
-      rawValue: (e) => (e.reason && e.reason.trim() ? e.reason : '(No reason)'),
-      accessor: (e) => (
-        <span className="text-gray-600 max-w-md truncate block" title={e.reason || ''}>
-          {e.reason || '—'}
-        </span>
-      ),
-      minWidth: '160px',
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      align: 'right',
-      accessor: (e) => (
-        <div className="text-right">
-          <button
-            type="button"
-            onClick={() => openEdit(e)}
-            className="text-sm font-medium text-blue-700 hover:underline mr-3"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(e.id)}
-            className="text-sm font-medium text-red-600 hover:underline"
-          >
-            Delete
-          </button>
-        </div>
-      ),
-      minWidth: '120px',
-    },
-  ];
+  const excludedColumns: Column<ExcludedEntry>[] = useMemo(
+    () => [
+      {
+        key: 'keyValue',
+        header: 'Customer name',
+        sortable: true,
+        filterable: true,
+        rawValue: (e) => e.keyValue,
+        accessor: (e) => (
+          <span className="font-medium text-gray-900">{e.customerName || '—'}</span>
+        ),
+        minWidth: '160px',
+      },
+      {
+        key: 'customerCode',
+        header: 'Customer code',
+        sortable: false,
+        filterable: false,
+        rawValue: (e) => e.customerCode ?? '',
+        accessor: (e) => (
+          <span className="text-gray-800 font-mono text-sm">{e.customerCode || '—'}</span>
+        ),
+        minWidth: '120px',
+      },
+      {
+        key: 'reason',
+        header: 'Reason',
+        sortable: true,
+        filterable: true,
+        rawValue: (e) => (e.reason && e.reason.trim() ? e.reason : '(No reason)'),
+        accessor: (e) => (
+          <span className="text-gray-600 max-w-md truncate block" title={e.reason || ''}>
+            {e.reason || '—'}
+          </span>
+        ),
+        minWidth: '160px',
+      },
+      {
+        key: 'actions',
+        header: '',
+        align: 'right',
+        accessor: (e) => (
+          <div className="flex justify-end">
+            <div className="group/del relative inline-flex">
+              <button
+                type="button"
+                onClick={() => openDeleteModal(e)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400"
+                aria-label="Remove exclusion"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </button>
+              <span
+                className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 w-max max-w-[14rem] rounded-md border border-gray-200 bg-slate-900 px-2 py-1.5 text-left text-[10px] font-medium leading-snug text-white shadow-lg opacity-0 transition-opacity [transition-delay:40ms] group-hover/del:opacity-100 sm:block"
+                role="tooltip"
+              >
+                Remove this exclusion (line will be eligible in reports again after re-apply).
+              </span>
+            </div>
+          </div>
+        ),
+        minWidth: '56px',
+      },
+    ],
+    [openDeleteModal],
+  );
 
   // ─── render ────────────────────────────────────────────────────────────────
   return (
@@ -503,7 +505,6 @@ export default function ExcludedCustomersClient() {
             }}
             filterOptions={{
               keyValue: filterOptions.keyValue,
-              keyType: filterOptions.keyType,
               reason: filterOptions.reason.map((r) => (r === '__empty__' ? '(No reason)' : r)) as string[],
             }}
             onClearAllFilters={() => {
@@ -518,6 +519,45 @@ export default function ExcludedCustomersClient() {
           />
         </section>
       </div>
+
+      {deleteModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+          role="dialog"
+          aria-modal
+          aria-labelledby="excluded-delete-title"
+          onClick={(ev) => ev.target === ev.currentTarget && closeDeleteModal()}
+        >
+          <div
+            className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl border border-gray-200"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h3 id="excluded-delete-title" className="text-lg font-semibold text-gray-900">
+              Remove exclusion?
+            </h3>
+            <p className="text-sm text-gray-600 mt-2">
+              This will remove the exclusion for <span className="font-medium text-gray-800">{deleteModal.label}</span>.
+              Matching customers may reappear in ageing until exclusions are re-applied to the import.
+            </p>
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={runConfirmedDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add modal ─────────────────────────────────────────────── */}
       {showAddModal && (
@@ -555,38 +595,6 @@ export default function ExcludedCustomersClient() {
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg">Cancel</button>
               <button type="button" onClick={handleAdd} disabled={!addForm.keyValue.trim()}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">Add</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Edit modal ────────────────────────────────────────────── */}
-      {editEntry && editForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal>
-          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Edit exclusion</h3>
-            <p className="text-xs text-gray-500 mb-4">Type: {labelKeyType(editEntry.keyType)}</p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Key</label>
-                <input type="text" value={editForm.keyValue}
-                  onChange={(e) => setEditForm({ ...editForm, keyValue: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
-                <input type="text" value={editForm.reason}
-                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button type="button" onClick={closeEdit} disabled={savingEdit}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={handleSaveEdit} disabled={savingEdit || !editForm.keyValue.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">
-                {savingEdit ? 'Saving…' : 'Save'}
-              </button>
             </div>
           </div>
         </div>

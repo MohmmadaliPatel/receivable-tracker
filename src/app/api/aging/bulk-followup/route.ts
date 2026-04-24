@@ -5,6 +5,7 @@ import { getCustomerGroups, getLineItemsForGroup, sumLineItemsTotalBalance } fro
 import { generateFollowupEmailBody, EmailTemplateData, mapLineItemsToInvoiceRows } from '@/lib/aging-templates';
 import { getCurrentUser } from '@/lib/simple-auth';
 import { collectAgingSendAttachments } from '@/lib/aging-import-attachments';
+import { parseEmailAddresses } from '@/lib/email-parser';
 
 export async function POST(request: NextRequest) {
   try {
@@ -151,11 +152,28 @@ export async function POST(request: NextRequest) {
           importAttachmentMap
         );
 
+        // Prefer directory-merged group addresses (same as getCustomerGroups / first send), then chase, then line
+        let toList = parseEmailAddresses(group.emailTo);
+        if (toList.length === 0) toList = parseEmailAddresses(chase?.emailTo ?? null);
+        if (toList.length === 0) toList = parseEmailAddresses(firstItem.emailTo ?? null);
+        if (toList.length === 0) {
+          results.skipped++;
+          results.errors.push(`Skipped follow-up for ${group.groupKey}: no To address.`);
+          continue;
+        }
+        const toArg: string | string[] = toList.length === 1 ? toList[0]! : toList;
+        const toSet = new Set(toList);
+
+        let ccList = parseEmailAddresses(group.emailCc);
+        if (ccList.length === 0) ccList = parseEmailAddresses(chase?.emailCc ?? null);
+        if (ccList.length === 0) ccList = parseEmailAddresses(firstItem.emailCc ?? null);
+        const mergedCc = [...new Set(ccList)].filter((e) => !toSet.has(e));
+
         // Send threaded reply
         await GraphMailService.replyToMessage(emailConfig, chase.sentMessageId, {
-          to: chase.emailTo || group.emailTo,
+          to: toArg,
           htmlBody: followupBody,
-          cc: chase.emailCc || undefined,
+          cc: mergedCc.length > 0 ? (mergedCc.length === 1 ? mergedCc[0]! : mergedCc) : undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
         });
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { getBucketSortDaysFromMaxDaysField } from '@/lib/aging-bucket-utils';
 import CustomerLineItemsModal from '@/components/CustomerLineItemsModal';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
@@ -79,6 +80,7 @@ function buildQuery(params: {
   appendParamList(s, 'company', g('companyName'));
   appendParamList(s, 'documentNo', g('documentNo'));
   appendParamList(s, 'customerName', g('customerName'));
+  appendParamList(s, 'customerCode', g('customerCode'));
   appendParamList(s, 'status', g('status'));
   appendParamList(s, 'emailsSent', g('emailsSent'));
   appendParamList(s, 'amount', g('amount'));
@@ -91,6 +93,7 @@ function buildQuery(params: {
 }
 
 export default function InvoicesClient() {
+  const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sortField, setSortField] = useState<InvoiceSortField>('amount');
@@ -140,11 +143,70 @@ export default function InvoicesClient() {
     [columnFilters, page, pageSize, sortField, sortOrder],
   );
 
+  /** On first mount, `company` in the URL is applied in an effect, so `q` lags. Merge URL company into the request so the first load is already filtered. */
+  const requestQuery = useMemo(() => {
+    const fromUrl = searchParams.getAll('company');
+    if (fromUrl.length === 0) return q;
+    const s = new URLSearchParams(q);
+    if (s.getAll('company').length > 0) return q;
+    for (const c of fromUrl) s.append('company', c);
+    return s.toString();
+  }, [q, searchParams]);
+
+  useEffect(() => {
+    const ccs = searchParams.getAll('customerCode');
+    const leg = searchParams.get('customer');
+    const cns = searchParams.getAll('customerName');
+    const cos = searchParams.getAll('company');
+    const hasAny =
+      ccs.length > 0 ||
+      Boolean(leg) ||
+      cns.length > 0 ||
+      cos.length > 0 ||
+      searchParams.get('sortField') != null ||
+      searchParams.get('sortOrder') != null ||
+      searchParams.get('page') != null ||
+      searchParams.get('pageSize') != null;
+    if (!hasAny) return;
+
+    if (ccs.length > 0 || (leg && leg.length > 0) || cns.length > 0 || cos.length > 0) {
+      setColumnFilters((prev) => {
+        const next = { ...prev };
+        if (ccs.length > 0 || (leg && leg.length > 0)) {
+          next.customerCode = new Set([...ccs, ...(leg && leg.length > 0 ? [leg] : [])]);
+        }
+        if (cns.length > 0) {
+          next.customerName = new Set(cns);
+        }
+        if (cos.length > 0) {
+          next.companyName = new Set(cos);
+        }
+        return next;
+      });
+    }
+    const sf = searchParams.get('sortField')?.trim();
+    if (sf && (INVOICE_SORT_FIELDS as readonly string[]).includes(sf)) {
+      setSortField(sf as InvoiceSortField);
+    }
+    const so = searchParams.get('sortOrder');
+    if (so === 'asc' || so === 'desc') setSortOrder(so);
+    const p = searchParams.get('page');
+    if (p != null) {
+      const n = Math.max(1, parseInt(p, 10) || 1);
+      setPage(n);
+    }
+    const ps = searchParams.get('pageSize');
+    if (ps != null) {
+      const n = Math.min(100, Math.max(1, parseInt(ps, 10) || 25));
+      setPageSize(n);
+    }
+  }, [searchParams]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/aging/invoices-view?${q}`);
+      const res = await fetch(`/api/aging/invoices-view?${requestQuery}`);
       if (!res.ok) {
         setError('Could not load invoices');
         return;
@@ -180,7 +242,7 @@ export default function InvoicesClient() {
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }, [requestQuery]);
 
   useEffect(() => {
     load();

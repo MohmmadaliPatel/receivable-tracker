@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
 import type { Column } from '@/components/ui/DataTable';
+import { EmailAddressList } from '@/components/EmailAddressList';
 import type { CustomerEmailSortField } from '@/lib/customer-email-directory';
 
 interface EmailEntry {
@@ -43,12 +44,11 @@ export default function CustomerEmailsClient() {
   const [sortOrder, setSortOrder] = useState<SortDir>('asc');
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
   const [filterOptions, setFilterOptions] = useState<{
-    keyType: string[];
     keyValue: string[];
     companyName: string[];
     emailTo: string[];
     emailCc: string[];
-  }>({ keyType: [], keyValue: [], companyName: [], emailTo: [], emailCc: [] });
+  }>({ keyValue: [], companyName: [], emailTo: [], emailCc: [] });
   const [message, setMessage] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -63,6 +63,13 @@ export default function CustomerEmailsClient() {
   const [editForm, setEditForm] = useState<RowForm | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteModal, setDeleteModal] = useState<
+    | null
+    | { variant: 'single'; id: string; keyLabel: string }
+    | { variant: 'bulk' }
+    | { variant: 'all' }
+  >(null);
+  const [deleteAllVerify, setDeleteAllVerify] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,11 +80,11 @@ export default function CustomerEmailsClient() {
     emailCc: '',
   });
 
-  const openEdit = (entry: EmailEntry) => {
+  const openEdit = useCallback((entry: EmailEntry) => {
     setMessage(null);
     setEditEntry(entry);
     setEditForm(rowFromEntry(entry));
-  };
+  }, []);
 
   const closeEdit = () => {
     setEditEntry(null);
@@ -92,12 +99,6 @@ export default function CustomerEmailsClient() {
       params.set('pageSize', String(pageSize));
       params.set('sortBy', sortField);
       params.set('sortOrder', sortOrder);
-      const kf = columnFilters.keyType;
-      if (kf && kf.size > 0) {
-        for (const k of kf) {
-          if (k === 'customer_name' || k === 'customer_code') params.append('keyType', k);
-        }
-      }
       const kv = columnFilters.keyValue;
       if (kv && kv.size > 0) {
         for (const v of kv) params.append('keyValue', v);
@@ -124,7 +125,6 @@ export default function CustomerEmailsClient() {
         if (data.filterOptions) {
           const fo = data.filterOptions;
           setFilterOptions({
-            keyType: fo.keyType || ['customer_name', 'customer_code'],
             keyValue: fo.keyValue || [],
             companyName: fo.companyName || [],
             emailTo: fo.emailTo || [],
@@ -132,7 +132,6 @@ export default function CustomerEmailsClient() {
           });
         } else {
           setFilterOptions({
-            keyType: ['customer_name', 'customer_code'],
             keyValue: [],
             companyName: [],
             emailTo: [],
@@ -150,6 +149,23 @@ export default function CustomerEmailsClient() {
   useEffect(() => {
     loadEmails();
   }, [loadEmails]);
+
+  useEffect(() => {
+    setColumnFilters((prev) => {
+      if (!prev.keyType) return prev;
+      const { keyType: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (sortField === 'keyType') setSortField('keyValue');
+  }, [sortField]);
+
+  const openDeleteAllModal = useCallback(() => {
+    setDeleteAllVerify('');
+    setDeleteModal({ variant: 'all' });
+  }, []);
 
   const handleSaveEdit = async () => {
     if (!editEntry || !editForm) return;
@@ -219,23 +235,76 @@ export default function CustomerEmailsClient() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this email entry?')) return;
+  const openDeleteSingleModal = useCallback((id: string, keyLabel: string) => {
+    setDeleteModal({ variant: 'single', id, keyLabel });
+  }, []);
 
+  const openBulkDeleteModal = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setDeleteModal({ variant: 'bulk' });
+  }, [selectedIds]);
+
+  const closeDeleteModal = useCallback(() => {
+    setDeleteModal(null);
+    setDeleteAllVerify('');
+  }, []);
+
+  const runConfirmedDelete = async () => {
+    if (!deleteModal) return;
+    if (deleteModal.variant === 'all' && deleteAllVerify !== 'DELETE') return;
+
+    setMessage(null);
     try {
-      const res = await fetch(`/api/customer-emails?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
+      if (deleteModal.variant === 'single') {
+        const { id } = deleteModal;
+        const res = await fetch(`/api/customer-emails?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          setMessage('Entry deleted');
+          if (editEntry?.id === id) closeEdit();
+          closeDeleteModal();
+          await loadEmails();
+        } else {
+          const data = await res.json();
+          setMessage(data.error || 'Delete failed');
+        }
+        return;
+      }
 
+      if (deleteModal.variant === 'bulk') {
+        const res = await fetch('/api/customer-emails', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [...selectedIds] }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMessage(`Deleted ${data.deleted} entries`);
+          setSelectedIds(new Set());
+          closeDeleteModal();
+          await loadEmails();
+        } else {
+          setMessage(data.error || 'Bulk delete failed');
+        }
+        return;
+      }
+
+      const res = await fetch('/api/customer-emails', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteAll: true }),
+      });
+      const data = await res.json();
       if (res.ok) {
-        setMessage('Entry deleted');
-        if (editEntry?.id === id) closeEdit();
+        setMessage(`Deleted ${data.deleted ?? 0} entries`);
+        setSelectedIds(new Set());
+        closeDeleteModal();
         await loadEmails();
       } else {
-        const data = await res.json();
-        setMessage(data.error || 'Delete failed');
+        setMessage(data.error || 'Delete all failed');
       }
-    } catch (error) {
+    } catch {
       setMessage('Delete failed');
     }
   };
@@ -325,31 +394,10 @@ export default function CustomerEmailsClient() {
     finally { setImportingExcel(false); }
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} selected entries?`)) return;
-    setMessage(null);
-    try {
-      const res = await fetch('/api/customer-emails', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [...selectedIds] }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage(`Deleted ${data.deleted} entries`);
-        setSelectedIds(new Set());
-        await loadEmails();
-      } else {
-        setMessage(data.error || 'Bulk delete failed');
-      }
-    } catch { setMessage('Bulk delete failed'); }
-  };
-
   const onEmailSort = (colKey: string) => {
     if (colKey === 'actions') return;
     const f = colKey as CustomerEmailSortField;
-    const valid: string[] = ['keyValue', 'companyName', 'emailTo', 'emailCc', 'keyType', 'updatedAt'];
+    const valid: string[] = ['keyValue', 'companyName', 'emailTo', 'emailCc', 'updatedAt'];
     if (!valid.includes(colKey)) return;
     if (sortField === f) {
       setSortOrder((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -362,19 +410,6 @@ export default function CustomerEmailsClient() {
 
   const tableColumns = useMemo((): Column<EmailEntry>[] => [
     {
-      key: 'keyType',
-      header: 'Type',
-      sortable: true,
-      filterable: true,
-      rawValue: (r) => r.keyType,
-      accessor: (r) => (
-        <span className="text-gray-600 text-sm">
-          {r.keyType === 'customer_name' ? 'Name' : 'Code'}
-        </span>
-      ),
-      minWidth: '88px',
-    },
-    {
       key: 'keyValue',
       header: 'Key',
       accessor: (r) => <span className="font-medium text-gray-900">{r.keyValue}</span>,
@@ -386,7 +421,7 @@ export default function CustomerEmailsClient() {
     },
     {
       key: 'companyName',
-      header: 'Company',
+      header: 'Customer name',
       accessor: (r) => r.companyName || '—',
       rawValue: (r) => r.companyName || '',
       sortable: true,
@@ -397,7 +432,7 @@ export default function CustomerEmailsClient() {
     {
       key: 'emailTo',
       header: 'Email To',
-      accessor: (r) => <span className="break-all text-gray-600">{r.emailTo}</span>,
+      accessor: (r) => <EmailAddressList value={r.emailTo} />,
       rawValue: (r) => r.emailTo,
       sortable: true,
       filterable: true,
@@ -406,7 +441,9 @@ export default function CustomerEmailsClient() {
     {
       key: 'emailCc',
       header: 'Email CC',
-      accessor: (r) => <span className="break-all text-gray-500">{r.emailCc || '—'}</span>,
+      accessor: (r) => (
+        <EmailAddressList value={r.emailCc} variant="muted" emptyLabel="—" />
+      ),
       rawValue: (r) => r.emailCc || '',
       sortable: true,
       filterable: true,
@@ -420,12 +457,18 @@ export default function CustomerEmailsClient() {
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={() => openEdit(r)} className="text-sm font-medium text-blue-700 hover:underline">Edit</button>
           <span className="text-gray-200">|</span>
-          <button type="button" onClick={() => handleDelete(r.id)} className="text-sm font-medium text-red-600 hover:underline">Delete</button>
+          <button
+            type="button"
+            onClick={() => openDeleteSingleModal(r.id, r.keyValue)}
+            className="text-sm font-medium text-red-600 hover:underline"
+          >
+            Delete
+          </button>
         </div>
       ),
       minWidth: '100px',
     },
-  ], []);
+  ], [openDeleteSingleModal, openEdit]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -509,6 +552,13 @@ export default function CustomerEmailsClient() {
                 >
                   {importingExcel ? 'Importing…' : 'Import Excel'}
                 </button>
+                <button
+                  type="button"
+                  onClick={openDeleteAllModal}
+                  className="h-9 px-3 text-sm font-medium border border-red-200 text-red-800 bg-red-50 rounded-lg hover:bg-red-100"
+                >
+                  Delete all
+                </button>
               </div>
             </div>
           </div>
@@ -534,7 +584,6 @@ export default function CustomerEmailsClient() {
               setPage(1);
             }}
             filterOptions={{
-              keyType: filterOptions.keyType,
               keyValue: filterOptions.keyValue,
               companyName: filterOptions.companyName,
               emailTo: filterOptions.emailTo,
@@ -556,7 +605,7 @@ export default function CustomerEmailsClient() {
               selectedIds.size > 0 ? (
                 <button
                   type="button"
-                  onClick={handleBulkDelete}
+                  onClick={openBulkDeleteModal}
                   className="h-8 px-3 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100"
                 >
                   Delete selected ({selectedIds.size})
@@ -566,6 +615,84 @@ export default function CustomerEmailsClient() {
           />
         </section>
       </div>
+
+      {deleteModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+          role="dialog"
+          aria-modal
+          aria-labelledby="delete-confirm-title"
+          onClick={(e) => e.target === e.currentTarget && closeDeleteModal()}
+        >
+          <div
+            className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="delete-confirm-title" className="text-lg font-semibold text-gray-900">
+              {deleteModal.variant === 'single' && 'Delete this entry?'}
+              {deleteModal.variant === 'bulk' && 'Delete selected entries?'}
+              {deleteModal.variant === 'all' && 'Delete all entries?'}
+            </h3>
+            <p className="text-sm text-gray-600 mt-2">
+              {deleteModal.variant === 'single' && (
+                <>
+                  This will remove the directory entry for{' '}
+                  <span className="font-medium text-gray-800">{deleteModal.keyLabel}</span>. This
+                  cannot be undone.
+                </>
+              )}
+              {deleteModal.variant === 'bulk' && (
+                <>
+                  This will remove {selectedIds.size} selected{' '}
+                  {selectedIds.size === 1 ? 'entry' : 'entries'}. This cannot be undone.
+                </>
+              )}
+              {deleteModal.variant === 'all' && (
+                <>
+                  This will permanently delete <strong>all</strong> customer email directory
+                  entries for your account. This cannot be undone.
+                </>
+              )}
+            </p>
+            {deleteModal.variant === 'all' && (
+              <div className="mt-4">
+                <label
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                  htmlFor="delete-all-verify"
+                >
+                  Type <span className="font-mono text-gray-900">DELETE</span> to confirm
+                </label>
+                <input
+                  id="delete-all-verify"
+                  type="text"
+                  value={deleteAllVerify}
+                  onChange={(e) => setDeleteAllVerify(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="DELETE"
+                  autoComplete="off"
+                />
+              </div>
+            )}
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={runConfirmedDelete}
+                disabled={deleteModal.variant === 'all' && deleteAllVerify !== 'DELETE'}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteModal.variant === 'all' ? 'Delete everything' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -605,7 +732,7 @@ export default function CustomerEmailsClient() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer name (optional)</label>
                 <input
                   type="text"
                   value={newEntry.companyName}
@@ -617,11 +744,11 @@ export default function CustomerEmailsClient() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email to</label>
                 <input
-                  type="email"
+                  type="text"
                   value={newEntry.emailTo}
                   onChange={(e) => setNewEntry({ ...newEntry, emailTo: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="contact@example.com"
+                  placeholder="a@b.com, b@b.com or Name &lt;email&gt;"
                 />
               </div>
               <div>
@@ -680,7 +807,7 @@ export default function CustomerEmailsClient() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer name (optional)</label>
                 <input
                   type="text"
                   value={editForm.companyName}
@@ -691,7 +818,7 @@ export default function CustomerEmailsClient() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email to</label>
                 <input
-                  type="email"
+                  type="text"
                   value={editForm.emailTo}
                   onChange={(e) => setEditForm({ ...editForm, emailTo: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"

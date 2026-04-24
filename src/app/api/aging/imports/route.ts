@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unlink } from 'fs/promises';
+import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/simple-auth';
 
@@ -69,10 +71,16 @@ export async function DELETE(request: NextRequest) {
     // Verify the import belongs to this user
     const existing = await prisma.agingImport.findFirst({
       where: { id: importId, userId: user.id },
+      select: { id: true, sourceFilePath: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: 'Import not found' }, { status: 404 });
+    }
+
+    if (existing.sourceFilePath) {
+      const full = path.join(process.cwd(), existing.sourceFilePath);
+      await unlink(full).catch(() => {});
     }
 
     // Delete the import (cascade will delete line items)

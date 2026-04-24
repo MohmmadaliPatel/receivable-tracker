@@ -87,6 +87,15 @@ export async function getInternalCompanyCodes(filePath?: string): Promise<Set<st
 
 export type UserExclusionLookup = { nameSet: Set<string>; codeSet: Set<string> };
 
+const INTER_UNIT_INDICATORS = [
+  'inter unit',
+  'inter-unit',
+  'branch transfer',
+  'internal',
+  'intercompany',
+  'inter-company',
+] as const;
+
 /**
  * Load per-user excluded customers (by name or code) for import-time checks.
  */
@@ -116,26 +125,15 @@ export async function shouldExcludeLineItem(
   customerName?: string,
   exclusionLookup?: UserExclusionLookup | null
 ): Promise<boolean> {
-  // Check for inter-unit indicators in recon account description
   if (reconAccountDescription) {
-    const interUnitIndicators = [
-      'inter unit',
-      'inter-unit',
-      'branch transfer',
-      'internal',
-      'intercompany',
-      'inter-company',
-    ];
-    
     const desc = reconAccountDescription.toLowerCase();
-    for (const indicator of interUnitIndicators) {
+    for (const indicator of INTER_UNIT_INDICATORS) {
       if (desc.includes(indicator)) {
         return true;
       }
     }
   }
   
-  // Check against internal company list
   const internalCodes = await getInternalCompanyCodes(filePath);
   
   if (companyCode && internalCodes.has(companyCode.toString().trim())) {
@@ -157,6 +155,47 @@ export async function shouldExcludeLineItem(
     if (cn && exclusionLookup.nameSet.has(cn)) return true;
     if (cc && exclusionLookup.codeSet.has(cc)) return true;
   }
+
+  return false;
+}
+
+/**
+ * Same rules as `shouldExcludeLineItem`, but uses a pre-fetched `internalCodes` set (no I/O).
+ * For bulk import, call `getInternalCompanyCodes()` once and pass the result.
+ */
+export function shouldExcludeLineItemSync(
+  companyCode: string,
+  customerCode: string,
+  reconAccountDescription: string | undefined,
+  customerName: string | undefined,
+  internalCodes: Set<string>,
+  exclusionLookup: UserExclusionLookup,
+): boolean {
+  if (reconAccountDescription) {
+    const desc = reconAccountDescription.toLowerCase();
+    for (const indicator of INTER_UNIT_INDICATORS) {
+      if (desc.includes(indicator)) {
+        return true;
+      }
+    }
+  }
+
+  if (companyCode && internalCodes.has(companyCode.toString().trim())) {
+    return true;
+  }
+
+  if (customerCode && internalCodes.has(customerCode.toString().trim())) {
+    return true;
+  }
+
+  if (companyCode && customerCode && companyCode.toString().trim() === customerCode.toString().trim()) {
+    return true;
+  }
+
+  const cn = customerName?.toLowerCase().trim();
+  const cc = customerCode?.toString().trim().toLowerCase();
+  if (cn && exclusionLookup.nameSet.has(cn)) return true;
+  if (cc && exclusionLookup.codeSet.has(cc)) return true;
 
   return false;
 }

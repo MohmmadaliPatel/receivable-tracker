@@ -134,6 +134,12 @@ export async function GET(request: NextRequest) {
     const companyList = parseRepeatOrCsv(searchParams, 'company');
     const documentNoList = parseRepeatOrCsv(searchParams, 'documentNo');
     const customerNameList = parseRepeatOrCsv(searchParams, 'customerName');
+    const customerCodeList = [
+      ...new Set([
+        ...parseRepeatOrCsv(searchParams, 'customerCode'),
+        ...parseRepeatOrCsv(searchParams, 'customer'),
+      ]),
+    ];
     const emailsSentList = parseRepeatOrCsv(searchParams, 'emailsSent');
     const amountList = parseRepeatOrCsv(searchParams, 'amount');
     const lastSentList = parseRepeatOrCsv(searchParams, 'lastSent');
@@ -247,6 +253,7 @@ export async function GET(request: NextRequest) {
     const selectedBuckets = bucketList.length > 0 ? new Set(bucketList) : null;
     const documentNoSet = documentNoList.length > 0 ? new Set(documentNoList) : null;
     const customerNameSet = customerNameList.length > 0 ? new Set(customerNameList) : null;
+    const customerCodeSet = customerCodeList.length > 0 ? new Set(customerCodeList) : null;
     const companyNameSet = companyList.length > 0 ? new Set(companyList) : null;
     const emailsSentSet = emailsSentList.length > 0 ? new Set(emailsSentList) : null;
     const amountSet = amountList.length > 0 ? new Set(amountList) : null;
@@ -262,8 +269,15 @@ export async function GET(request: NextRequest) {
       if (customerNameSet && customerNameSet.size > 0 && !customerNameSet.has(customerLabel(r))) {
         return false;
       }
-      if (companyNameSet && companyNameSet.size > 0 && !companyNameSet.has(companyLabel(r))) {
+      if (customerCodeSet && customerCodeSet.size > 0 && !customerCodeSet.has(r.customerCode)) {
         return false;
+      }
+      if (companyNameSet && companyNameSet.size > 0) {
+        // Query may send full label "Name (code)" (from table facets) or just company code (deep links)
+        const ok = [...companyNameSet].some(
+          (v) => v === companyLabel(r) || v === r.companyCode,
+        );
+        if (!ok) return false;
       }
       if (statusSet && statusSet.size > 0 && !statusSet.has(r.status)) {
         return false;

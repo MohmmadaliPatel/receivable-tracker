@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     const facetWhere: Prisma.ExcludedCustomerWhereInput =
       facetAnd.length > 1 ? { AND: facetAnd } : facetAnd[0]!;
 
-    const [rows, total, keyFacet, reasonFacet, hasEmptyReason] = await Promise.all([
+    const [rows, total, keyFacet, reasonFacet, hasEmptyReason, latestImport] = await Promise.all([
       prisma.excludedCustomer.findMany({
         where,
         skip,
@@ -109,7 +109,30 @@ export async function GET(request: NextRequest) {
         },
         select: { id: true },
       }),
+      prisma.agingImport.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      }),
     ]);
+
+    const codeKeys = [
+      ...new Set(rows.filter((r) => r.keyType === 'customer_code').map((r) => r.keyValue)),
+    ];
+    const nameByCode = new Map<string, string>();
+    if (latestImport && codeKeys.length > 0) {
+      const needed = new Set(codeKeys);
+      const items = await prisma.agingLineItem.findMany({
+        where: { userId: user.id, importId: latestImport.id },
+        select: { customerCode: true, customerName: true },
+      });
+      for (const it of items) {
+        if (nameByCode.size >= needed.size) break;
+        const c = (it.customerCode || '').toLowerCase().trim();
+        if (!c || !needed.has(c) || nameByCode.has(c) || !it.customerName) continue;
+        nameByCode.set(c, it.customerName);
+      }
+    }
 
     const reasonOpts: string[] = reasonFacet
       .map((r) => r.reason)
@@ -119,19 +142,25 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      entries: rows.map((r) => ({
-        id: r.id,
-        keyType: r.keyType,
-        keyValue: r.keyValue,
-        reason: r.reason,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      })),
+      entries: rows.map((r) => {
+        const isName = r.keyType === 'customer_name';
+        const customerName = isName ? r.keyValue : nameByCode.get(r.keyValue) || null;
+        const customerCode = isName ? null : r.keyValue;
+        return {
+          id: r.id,
+          keyType: r.keyType,
+          keyValue: r.keyValue,
+          customerName,
+          customerCode,
+          reason: r.reason,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        };
+      }),
       total,
       page,
       pageSize,
       filterOptions: {
-        keyType: ['customer_name', 'customer_code'],
         keyValue: keyFacet.map((k) => k.keyValue).filter(Boolean),
         reason: reasonOpts,
       },
