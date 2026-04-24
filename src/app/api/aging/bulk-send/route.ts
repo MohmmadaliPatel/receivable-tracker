@@ -92,21 +92,17 @@ export async function POST(request: NextRequest) {
         }
 
         const firstItem = lineItems[0];
-        let recipientEmail = firstItem.emailTo;
-        let directoryCc: string | null = null;
-
-        if (!recipientEmail) {
-          const directoryEmail = await getEmailForCustomer(
-            user.id,
-            group.customerCode || firstItem.customerCode,
-            group.customerName || firstItem.customerName,
-            g === 'code' ? 'code' : 'name'
-          );
-          if (directoryEmail) {
-            recipientEmail = directoryEmail.emailTo;
-            directoryCc = directoryEmail.emailCc;
-          }
-        }
+        const directoryEmail = await getEmailForCustomer(
+          user.id,
+          group.customerCode || firstItem.customerCode,
+          group.customerName || firstItem.customerName,
+          g === 'code' ? 'code' : 'name'
+        );
+        const dirTo = directoryEmail?.emailTo?.trim();
+        let recipientEmail = dirTo || firstItem.emailTo;
+        const directoryCc: string | null = dirTo
+          ? (directoryEmail?.emailCc?.trim() || null)
+          : null;
 
         if (!recipientEmail) {
           results.skipped++;
@@ -145,6 +141,9 @@ export async function POST(request: NextRequest) {
         }
         const ccAddresses: string[] = [];
         if (directoryCc) ccAddresses.push(...splitStoredEmails(directoryCc));
+        if (!dirTo && firstItem.emailCc) {
+          ccAddresses.push(...splitStoredEmails(firstItem.emailCc));
+        }
         const toSet = new Set(toAddresses);
         const mergedCc = [...new Set(ccAddresses)].filter((e) => !toSet.has(e));
 

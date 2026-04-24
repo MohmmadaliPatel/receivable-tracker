@@ -50,27 +50,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine recipient email
+    // Prefer customer email directory, then sheet
     const firstItem = lineItems[0];
-    let recipientEmail = firstItem.emailTo;
-    let emailSource = 'sheet';
-    let directoryCc: string | null = null;
-
-    // Try customer directory if no email in sheet
-    if (!recipientEmail) {
-      const directoryEmail = await getEmailForCustomer(
-        user.id,
-        customerCode || firstItem.customerCode,
-        customerName || firstItem.customerName,
-        grouping === 'code' ? 'code' : 'name'
-      );
-
-      if (directoryEmail) {
-        recipientEmail = directoryEmail.emailTo;
-        directoryCc = directoryEmail.emailCc;
-        emailSource = directoryEmail.source;
-      }
-    }
+    const directoryEmail = await getEmailForCustomer(
+      user.id,
+      customerCode || firstItem.customerCode,
+      customerName || firstItem.customerName,
+      grouping === 'code' ? 'code' : 'name'
+    );
+    const dirTo = directoryEmail?.emailTo?.trim();
+    let recipientEmail = dirTo || firstItem.emailTo;
+    const emailSource =
+      dirTo && directoryEmail ? directoryEmail.source : 'sheet';
+    const directoryCc: string | null = dirTo
+      ? (directoryEmail?.emailCc?.trim() || null)
+      : null;
 
     if (!recipientEmail) {
       return NextResponse.json(
@@ -88,10 +82,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Merge CC: manual cc + directory cc
+    // Merge CC: manual, directory (when used), or sheet line CC as fallback
     const ccParts: string[] = [];
     if (cc) ccParts.push(...splitStoredEmails(cc));
     if (directoryCc) ccParts.push(...splitStoredEmails(directoryCc));
+    if (!dirTo && firstItem.emailCc) {
+      ccParts.push(...splitStoredEmails(firstItem.emailCc));
+    }
     // Deduplicate and remove any addresses already in TO
     const toSet = new Set(toAddresses);
     const mergedCc = [...new Set(ccParts)].filter((e) => !toSet.has(e));

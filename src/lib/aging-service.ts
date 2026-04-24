@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { prisma } from './prisma';
+import { getEmailForCustomer } from './customer-email-directory';
 import { shouldExcludeLineItem, getUserExclusionLookup } from './aging-exclusions';
 
 function formatGenerationMonthFromDate(d: Date | null): string | null {
@@ -433,6 +434,8 @@ export async function getCustomerGroups(
     lineItemIds: string[];
     lineCount: number;
     emailTo: string;
+    /** When set, comes from customer email directory; otherwise from spreadsheet line(s). */
+    emailCc: string | null;
     emailConflict: boolean;
     companyName: string;
     customerName: string;
@@ -479,6 +482,8 @@ export async function getCustomerGroups(
       companyName: string;
       customerName: string;
       customerCode: string;
+      /** First non-empty CC seen on a line in the file (no directory) */
+      sheetEmailCc: string | null;
       emailCount: number;
       followupCount: number;
       totalEmailsCount: number;
@@ -517,6 +522,7 @@ export async function getCustomerGroups(
         companyName: item.companyName,
         customerName: item.customerName,
         customerCode: item.customerCode,
+        sheetEmailCc: null,
         emailCount: 0,
         followupCount: 0,
         totalEmailsCount: 0,
@@ -532,6 +538,9 @@ export async function getCustomerGroups(
     group.groupTotalBalance += parseAmount(item.totalBalance ?? '');
     if (item.emailTo) {
       group.emails.add(item.emailTo.toLowerCase().trim());
+    }
+    if (item.emailCc?.trim() && !group.sheetEmailCc) {
+      group.sheetEmailCc = item.emailCc.trim();
     }
     group.emailCount = Math.max(group.emailCount, ec);
     group.followupCount = Math.max(group.followupCount, fc);
@@ -549,25 +558,63 @@ export async function getCustomerGroups(
     }
   }
 
-  // Drop groups with no positive receivable total (bulk email / UI should not show them)
-  return Array.from(groups.entries())
-    .filter(([, data]) => data.groupTotalBalance > 0)
-    .map(([groupKey, data]) => ({
-    groupKey,
-    lineItemIds: data.lineItemIds,
-    lineCount: data.lineItemIds.length,
-    emailTo: Array.from(data.emails)[0] || '',
-    emailConflict: data.emails.size > 1,
-    companyName: data.companyName,
-    customerName: data.customerName,
-    customerCode: data.customerCode,
-    emailCount: data.emailCount,
-    followupCount: data.followupCount,
-    totalEmailsCount: data.totalEmailsCount,
-    lastSentAt: data.lastSentAt ? data.lastSentAt.toISOString() : null,
-    hasResponse: data.hasResponse,
-    hasUnansweredSent: data.hasUnansweredSent,
-  }));
+  const preference = grouping === 'code' ? 'code' : 'name';
+
+  // Drop groups with no positive receivable total; resolve To/CC from customer email directory when present
+  const positive = Array.from(groups.entries()).filter(
+    ([, d]) => d.groupTotalBalance > 0
+  );
+
+  const dirResults = await Promise.all(
+    positive.map(([, data]) =>
+      getEmailForCustomer(
+        userId,
+        data.customerCode,
+        data.customerName,
+        preference
+      )
+    )
+  );
+
+  return positive.map(([groupKey, data], i) => {
+    const dir = dirResults[i];
+    const dirTo = dir?.emailTo?.trim();
+    const sheetTo = Array.from(data.emails)[0] || '';
+    const emailTo = dirTo || sheetTo;
+    const emailCc = dirTo
+      ? (dir?.emailCc?.trim() || null)
+      : data.sheetEmailCc || null;
+
+    const sheetHasConflict = data.emails.size > 1;
+    let emailConflict = sheetHasConflict;
+    if (dirTo && data.emails.size > 0) {
+      const dirN = dirTo.toLowerCase();
+      for (const e of data.emails) {
+        if (e && e !== dirN) {
+          emailConflict = true;
+          break;
+        }
+      }
+    }
+
+    return {
+      groupKey,
+      lineItemIds: data.lineItemIds,
+      lineCount: data.lineItemIds.length,
+      emailTo,
+      emailCc,
+      emailConflict,
+      companyName: data.companyName,
+      customerName: data.customerName,
+      customerCode: data.customerCode,
+      emailCount: data.emailCount,
+      followupCount: data.followupCount,
+      totalEmailsCount: data.totalEmailsCount,
+      lastSentAt: data.lastSentAt ? data.lastSentAt.toISOString() : null,
+      hasResponse: data.hasResponse,
+      hasUnansweredSent: data.hasUnansweredSent,
+    };
+  });
 }
 
 /**

@@ -246,16 +246,24 @@ export default function BulkEmailClient() {
         header: 'Email',
         sortable: false,
         filterable: true,
-        rawValue: (g) => g.emailTo || '',
+        rawValue: (g) => [g.emailTo || '', g.emailCc || ''].filter(Boolean).join(' '),
         accessor: (g) => (
-          <span className="break-all">
-            {g.emailTo || '—'}
+          <div className="break-all text-sm">
+            <div>
+              <span className="text-gray-500">To:</span>{' '}
+              {g.emailTo || '—'}
+            </div>
+            {g.emailCc ? (
+              <div className="text-gray-600 mt-0.5">
+                <span className="text-gray-500">Cc:</span> {g.emailCc}
+              </div>
+            ) : null}
             {g.emailConflict && (
               <span className="ml-1 text-amber-700 text-xs">(emails differ)</span>
             )}
-          </span>
+          </div>
         ),
-        minWidth: '180px',
+        minWidth: '200px',
       },
       {
         key: 'totalEmailsCount',

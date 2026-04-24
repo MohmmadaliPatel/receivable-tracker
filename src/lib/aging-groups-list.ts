@@ -7,6 +7,7 @@ export type GroupListRow = {
   lineItemIds: string[];
   lineCount: number;
   emailTo: string;
+  emailCc: string | null;
   emailConflict: boolean;
   companyName: string;
   customerName: string;
@@ -79,7 +80,8 @@ export function filterAndSortGroups(
         (g.companyName || '').toLowerCase().includes(q) ||
         (g.customerName || '').toLowerCase().includes(q) ||
         (g.customerCode || '').toLowerCase().includes(q) ||
-        (g.emailTo || '').toLowerCase().includes(q)
+        (g.emailTo || '').toLowerCase().includes(q) ||
+        (g.emailCc || '').toLowerCase().includes(q)
       );
     });
   }

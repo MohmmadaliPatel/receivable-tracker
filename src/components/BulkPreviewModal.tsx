@@ -9,6 +9,7 @@ export type GroupRowWithStatus = {
   lineItemIds: string[];
   lineCount: number;
   emailTo: string;
+  emailCc: string | null;
   emailConflict: boolean;
   companyName: string;
   customerName: string;
@@ -176,6 +177,7 @@ export default function BulkPreviewModal({
         g.customerName.toLowerCase().includes(s) ||
         g.customerCode.toLowerCase().includes(s) ||
         (g.emailTo || '').toLowerCase().includes(s) ||
+        (g.emailCc || '').toLowerCase().includes(s) ||
         (g.companyName || '').toLowerCase().includes(s) ||
         g.groupKey.toLowerCase().includes(s)
     );
@@ -460,8 +462,15 @@ export default function BulkPreviewModal({
                         </td>
                         <td className="px-3 py-2 font-medium text-gray-900">{g.customerName}</td>
                         <td className="px-3 py-2 text-gray-600">{g.customerCode}</td>
-                        <td className="px-3 py-2 break-all">
-                          {g.emailTo || '—'}
+                        <td className="px-3 py-2 break-all text-sm">
+                          <div>
+                            <span className="text-gray-500">To:</span> {g.emailTo || '—'}
+                          </div>
+                          {g.emailCc ? (
+                            <div className="text-gray-600 mt-0.5">
+                              <span className="text-gray-500">Cc:</span> {g.emailCc}
+                            </div>
+                          ) : null}
                           {g.emailConflict && (
                             <span className="ml-1 text-amber-700 text-xs">(emails differ)</span>
                           )}
