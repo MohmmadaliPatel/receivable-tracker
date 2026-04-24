@@ -33,6 +33,13 @@ model User {
   emailConfigs  EmailConfig[]
   senders       Sender[]
   forwarders    Forwarder[]
+  agingImports          AgingImport[]
+  invoiceChases         InvoiceChase[]
+  agingLineItems        AgingLineItem[]
+  agingAttachmentRules            AgingAttachmentRule[]
+  agingImportCustomerAttachments  AgingImportCustomerAttachment[]
+  customerEmailEntries  CustomerEmailEntry[]
+  excludedCustomers     ExcludedCustomer[]
 
   @@map("users")
 }
@@ -273,4 +280,156 @@ model AppSettings {
   updatedAt                 DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// —— Receivables / ageing (bulk email + tracker) —— //
+
+model AgingImport {
+  id              String          @id @default(cuid())
+  userId          String
+  fileName        String
+  createdAt       DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lineItems       AgingLineItem[]
+  importAttachments AgingImportCustomerAttachment[]
+
+  @@index([userId, createdAt])
+  @@map("aging_imports")
+}
+
+model InvoiceChase {
+  id                 String   @id @default(cuid())
+  userId             String
+  invoiceKey         String
+  companyCode        String
+  companyName        String
+  customerCode       String
+  customerName       String
+  documentNo         String
+  amountSnapshot     String?
+  emailTo            String?
+  emailCc            String?
+  emailCount         Int      @default(0)
+  followupCount      Int      @default(0)
+  followupsJson      String?
+  sentAt             DateTime?
+  followupMessageId  String?
+  sentMessageId      String?
+  lastFollowupAt     DateTime?
+  status             String   @default("outstanding")
+  lastResponseAt     DateTime?
+  responseMessageId  String?
+  responseSubject    String?
+  responsePreview    String?
+  responsesJson         String?
+  /** JSON: [{ "importId", "sentAt" }] one entry per import when a campaign (non-followup) send ran */
+  outreachRoundsJson    String?
+  lastImportId       String?
+  emailConfigId      String?
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lineItems          AgingLineItem[]
+
+  @@unique([userId, invoiceKey])
+  @@index([userId, status])
+  @@map("invoice_chases")
+}
+
+model AgingLineItem {
+  id                String   @id @default(cuid())
+  importId          String
+  userId            String
+  invoiceChaseId    String?
+  companyCode       String
+  companyName       String
+  customerCode      String
+  customerName      String
+  documentNo        String
+  refNo             String?
+  totalBalance      String?
+  notDue            String?
+  maxDaysBucket     String?
+  docDate           DateTime?
+  postingDate       DateTime?
+  netDueDate        DateTime?
+  generationMonth   String?
+  emailTo           String
+  emailCc           String
+  customerNameKey   String
+  excluded          Boolean  @default(false)
+  rowIndex          Int
+  import            AgingImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
+  invoiceChase      InvoiceChase? @relation(fields: [invoiceChaseId], references: [id], onDelete: SetNull)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([importId])
+  @@index([userId, importId])
+  @@index([invoiceChaseId])
+  @@map("aging_line_items")
+}
+
+model AgingAttachmentRule {
+  id         String   @id @default(cuid())
+  userId     String
+  matchType  String
+  matchValue String
+  filePath   String
+  fileName   String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, matchType])
+  @@map("aging_attachment_rules")
+}
+
+/** Per-invoice / per-customer file for a specific ageing import; preferred over global AgingAttachmentRule at send time. */
+model AgingImportCustomerAttachment {
+  id           String   @id @default(cuid())
+  userId       String
+  importId     String
+  customerCode String
+  customerName String
+  filePath     String
+  fileName     String
+  mime         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  import       AgingImport  @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, customerCode])
+  @@index([userId, importId])
+  @@map("aging_import_customer_attachments")
+}
+
+model CustomerEmailEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  keyType     String
+  keyValue    String
+  companyName String?
+  emailTo     String
+  emailCc     String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, keyType, keyValue])
+  @@index([userId, keyType])
+  @@map("customer_email_entries")
+}
+
+model ExcludedCustomer {
+  id        String   @id @default(cuid())
+  userId    String
+  keyType   String // "customer_name" | "customer_code"
+  keyValue  String
+  reason    String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, keyType, keyValue])
+  @@index([userId, keyType])
+  @@map("excluded_customers")
 }

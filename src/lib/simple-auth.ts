@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { cookies } from 'next/headers';
 
 export interface LoginCredentials {
   username: string;
@@ -9,6 +10,8 @@ export interface LoginCredentials {
 
 export interface SessionData {
   userId: string;
+  /** Same as userId; API routes often use `user.id`. */
+  id: string;
   username: string;
   name?: string;
   role: string;
@@ -47,6 +50,7 @@ export async function getSession(sessionToken: string): Promise<SessionData | nu
 
   return {
     userId: session.userId,
+    id: session.userId,
     username: session.user.username,
     name: session.user.name || undefined,
     role: (session.user as any).role || 'user',
@@ -90,4 +94,12 @@ export async function cleanupExpiredSessions(): Promise<void> {
       },
     },
   });
+}
+
+// Get current user from session cookie (for API routes)
+export async function getCurrentUser(): Promise<SessionData | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get('session_token')?.value;
+  if (!sessionToken) return null;
+  return await getSession(sessionToken);
 }

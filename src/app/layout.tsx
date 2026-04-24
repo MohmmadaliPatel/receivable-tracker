@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Taxteck - Email Auto Manager",
-  description: "Audit confirmation email management tool by Taxteck",
+  title: "Receivable Tracker",
+  description: "Receivables and ageing email management",
   icons: {
     icon: '/favicon.ico',
   },
