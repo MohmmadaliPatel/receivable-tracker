@@ -218,6 +218,7 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             agingInvoiceKey: primaryInvoiceKey,
             kind: 'aging_initial',
+            agingImportId: importId,
           },
         });
 
@@ -300,6 +301,7 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
                 agingInvoiceKey: failurePrimaryKey,
                 kind: 'aging_initial',
+                agingImportId: importId,
               },
             });
             const failTime = new Date();

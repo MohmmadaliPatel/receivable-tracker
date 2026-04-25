@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@/lib/simple-auth';
 import { prisma } from '@/lib/prisma';
 import { buildCustomerEmailLookupIndex, hasResolvableRecipientForAgingLine } from '@/lib/customer-email-directory';
@@ -12,6 +13,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
+  const importIdParam = (searchParams.get('importId') || '').trim() || null;
   const fromD = dateFrom ? new Date(dateFrom) : null;
   const toD = dateTo ? new Date(dateTo) : null;
   const toEnd = toD
@@ -19,10 +21,23 @@ export async function GET(request: NextRequest) {
     : null;
 
   try {
-    const latestImport = await prisma.agingImport.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    });
+    let receivablesImport: { id: string; fileName: string } | null = null;
+    if (importIdParam) {
+      const row = await prisma.agingImport.findFirst({
+        where: { id: importIdParam, userId: user.id },
+        select: { id: true, fileName: true },
+      });
+      if (!row) {
+        return NextResponse.json({ error: 'Ageing import not found' }, { status: 404 });
+      }
+      receivablesImport = row;
+    } else {
+      receivablesImport = await prisma.agingImport.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, fileName: true },
+      });
+    }
 
     type ReceivablesSummary = {
       importName: string | null;
@@ -40,10 +55,10 @@ export async function GET(request: NextRequest) {
       byChaseStatus: {},
     };
 
-    if (latestImport) {
-      receivables.importName = latestImport.fileName;
+    if (receivablesImport) {
+      receivables.importName = receivablesImport.fileName;
       const items = await prisma.agingLineItem.findMany({
-        where: { userId: user.id, importId: latestImport.id, excluded: false },
+        where: { userId: user.id, importId: receivablesImport.id, excluded: false },
         include: { invoiceChase: true },
       });
       receivables.lineCount = items.length;
@@ -63,14 +78,23 @@ export async function GET(request: NextRequest) {
       receivables.byChaseStatus = byChaseStatus;
     }
 
-    const emailWhere: { emailConfig: { userId: string }; sentAt?: { gte?: Date; lte?: Date } } = {
-      emailConfig: { userId: user.id },
-    };
-    if (fromD || toEnd) {
-      emailWhere.sentAt = {};
-      if (fromD) (emailWhere.sentAt as { gte?: Date }).gte = fromD;
-      if (toEnd) (emailWhere.sentAt as { lte?: Date }).lte = toEnd;
+    const emailClauses: Prisma.EmailWhereInput[] = [
+      {
+        OR: [{ emailConfig: { userId: user.id } }, { userId: user.id }],
+      },
+    ];
+    if (importIdParam) {
+      emailClauses.push({ agingImportId: importIdParam });
     }
+    if (fromD || toEnd) {
+      emailClauses.push({
+        sentAt: {
+          ...(fromD ? { gte: fromD } : {}),
+          ...(toEnd ? { lte: toEnd } : {}),
+        },
+      });
+    }
+    const emailWhere: Prisma.EmailWhereInput = { AND: emailClauses };
 
     const [graphSent, graphFailed, confAll] = await Promise.all([
       prisma.email.count({ where: { ...emailWhere, status: 'sent' } }),

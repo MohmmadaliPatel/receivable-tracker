@@ -85,11 +85,14 @@ model Email {
   /** e.g. companyCode-documentNo for ageing sends */
   agingInvoiceKey String?
   kind            String?   // aging_initial | aging_followup | other
+  agingImportId  String?
+  agingImport    AgingImport? @relation(fields: [agingImportId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId, agingInvoiceKey])
   @@index([userId, sentAt])
+  @@index([userId, agingImportId])
   @@map("emails")
 }
 
@@ -323,6 +326,7 @@ model AgingImport {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lineItems         AgingLineItem[]
   importAttachments AgingImportCustomerAttachment[]
+  agingEmails      Email[]
 
   @@index([userId, createdAt])
   @@map("aging_imports")

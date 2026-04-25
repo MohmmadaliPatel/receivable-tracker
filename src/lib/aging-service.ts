@@ -473,6 +473,82 @@ export async function importAgingData(
 }
 
 /**
+ * Count initial + follow-up activity for a single `InvoiceChase` row scoped
+ * to one ageing `importId` (outreachRoundsJson + followups with matching importId).
+ * Legacy follow-ups without `importId` in JSON do not count for that import.
+ */
+export function getChaseOutreachForImport(
+  c:
+    | {
+        outreachRoundsJson: string | null;
+        followupsJson: string | null;
+        lastResponseAt: Date | null;
+      }
+    | undefined,
+  importId: string
+): {
+  initialCount: number;
+  followupCount: number;
+  total: number;
+  lastSentAt: Date | null;
+  unanswered: boolean;
+} {
+  if (!c) {
+    return { initialCount: 0, followupCount: 0, total: 0, lastSentAt: null, unanswered: false };
+  }
+
+  let initialCount = 0;
+  let lastRound: Date | null = null;
+  if (c.outreachRoundsJson) {
+    try {
+      const rounds = JSON.parse(c.outreachRoundsJson) as { importId: string; sentAt: string }[];
+      for (const r of rounds) {
+        if (r?.importId === importId) {
+          initialCount = 1;
+          const d = r.sentAt ? new Date(r.sentAt) : null;
+          if (d && !isNaN(d.getTime())) {
+            if (!lastRound || d > lastRound) lastRound = d;
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  let followupCount = 0;
+  let lastFu: Date | null = null;
+  if (c.followupsJson) {
+    try {
+      const followups = JSON.parse(c.followupsJson) as { sentAt: string; importId?: string }[];
+      for (const f of followups) {
+        if (f?.importId === importId) {
+          followupCount += 1;
+          const d = f.sentAt ? new Date(f.sentAt) : null;
+          if (d && !isNaN(d.getTime())) {
+            if (!lastFu || d > lastFu) lastFu = d;
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const total = initialCount + followupCount;
+  let lastSentAt: Date | null = null;
+  if (lastRound && lastFu) {
+    lastSentAt = lastRound > lastFu ? lastRound : lastFu;
+  } else {
+    lastSentAt = lastRound || lastFu;
+  }
+
+  const unanswered = c.lastResponseAt == null && total > 0;
+
+  return { initialCount, followupCount, total, lastSentAt, unanswered };
+}
+
+/**
  * Get customer groups for a specific import.
  */
 export async function getCustomerGroups(
@@ -555,24 +631,13 @@ export async function getCustomerGroups(
 
     const iKey = item.documentNo ? `${item.companyCode}-${item.documentNo}` : '';
     const c = iKey ? chaseByKey.get(iKey) : undefined;
-    const ec = c?.emailCount ?? 0;
-    const fc = c?.followupCount ?? 0;
-    const lineTotal = ec + fc;
-    const lineLast =
-      c?.lastFollowupAt && c?.sentAt
-        ? c.lastFollowupAt > c.sentAt
-          ? c.lastFollowupAt
-          : c.sentAt
-        : c?.lastFollowupAt ?? c?.sentAt ?? null;
+    const o = getChaseOutreachForImport(c, importId);
+    const ec = o.initialCount;
+    const fc = o.followupCount;
+    const lineTotal = o.total;
+    const lineLast = o.lastSentAt;
     const lineHasResp = c?.lastResponseAt != null;
-    // Unanswered: any outreach (initial or follow-up) with no customer reply. Prefer sentMessageId for threading;
-    // include emailCount so "bulk follow-up" list matches after first send when Graph id was missing (legacy data).
-    const lineUnanswered =
-      !!c &&
-      c.lastResponseAt == null &&
-      (!!c.sentMessageId?.trim() ||
-        (c.emailCount ?? 0) > 0 ||
-        (c.followupCount ?? 0) > 0);
+    const lineUnanswered = !!c && o.unanswered;
 
     if (!groups.has(key)) {
       groups.set(key, {

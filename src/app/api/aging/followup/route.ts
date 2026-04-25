@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
           subject?: string;
           emailId?: string;
           graphMessageId?: string;
+          importId?: string;
         }[] = [];
         const existingChase = await prisma.invoiceChase.findUnique({
           where: {
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
           sentAt: now.toISOString(),
           subject: followSubject,
           graphMessageId: graphFollowupId,
+          importId,
         });
 
         updates.push(

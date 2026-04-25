@@ -23,17 +23,31 @@ export async function GET(request: NextRequest) {
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
+  const importId = (searchParams.get('importId') || '').trim() || null;
   const fromD = dateFrom ? new Date(dateFrom) : null;
   const toD = dateTo ? new Date(dateTo) : null;
   const toEnd = toD
     ? new Date(toD.getFullYear(), toD.getMonth(), toD.getDate(), 23, 59, 59, 999)
     : null;
 
+  if (importId) {
+    const owned = await prisma.agingImport.findFirst({
+      where: { id: importId, userId: user.id },
+      select: { id: true },
+    });
+    if (!owned) {
+      return NextResponse.json({ error: 'Ageing import not found' }, { status: 404 });
+    }
+  }
+
   const andClauses: Prisma.EmailWhereInput[] = [
     {
       OR: [{ emailConfig: { userId: user.id } }, { userId: user.id }],
     },
   ];
+  if (importId) {
+    andClauses.push({ agingImportId: importId });
+  }
   if (status) {
     andClauses.push({ status });
   }

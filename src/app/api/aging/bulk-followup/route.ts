@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GraphMailService } from '@/lib/graph-mail-service';
-import { getCustomerGroups, getLineItemsForGroup, sumLineItemsTotalBalance } from '@/lib/aging-service';
+import {
+  getChaseOutreachForImport,
+  getCustomerGroups,
+  getLineItemsForGroup,
+  sumLineItemsTotalBalance,
+} from '@/lib/aging-service';
 import { generateFollowupEmailBody, EmailTemplateData, mapLineItemsToInvoiceRows } from '@/lib/aging-templates';
 import { getCurrentUser } from '@/lib/simple-auth';
 import {
@@ -98,13 +103,8 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        if (
-          chase &&
-          chase.lastResponseAt == null &&
-          (!!chase.sentMessageId?.trim() ||
-            (chase.emailCount ?? 0) > 0 ||
-            (chase.followupCount ?? 0) > 0)
-        ) {
+        const o = getChaseOutreachForImport(chase ?? undefined, importId);
+        if (o.unanswered) {
           groupsToFollowUp.push(group);
           break; // Only add group once
         }
@@ -253,6 +253,7 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             agingInvoiceKey: followupPrimaryKey,
             kind: 'aging_followup',
+            agingImportId: importId,
           },
         });
 
@@ -278,6 +279,7 @@ export async function POST(request: NextRequest) {
             subject?: string;
             emailId?: string;
             graphMessageId?: string;
+            importId?: string;
           }[] = [];
           if (existingChase?.followupsJson) {
             try {
@@ -292,6 +294,7 @@ export async function POST(request: NextRequest) {
             subject: logSubjectVal,
             emailId: emailRow.id,
             graphMessageId: graphFollowupId,
+            importId,
           });
 
           await prisma.invoiceChase.update({
@@ -330,6 +333,7 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
                 agingInvoiceKey: followupPrimaryKey,
                 kind: 'aging_followup',
+                agingImportId: importId,
               },
             });
             const failTime = new Date();

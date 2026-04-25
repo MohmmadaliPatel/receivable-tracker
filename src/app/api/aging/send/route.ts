@@ -6,6 +6,7 @@ import { getEmailForCustomer } from '@/lib/customer-email-directory';
 import { splitStoredEmails } from '@/lib/email-parser';
 import { getCurrentUser } from '@/lib/simple-auth';
 import { collectAgingSendAttachments } from '@/lib/aging-import-attachments';
+import { stripHtmlToPlain } from '@/lib/aging-bulk-form';
 
 export async function POST(request: NextRequest) {
   try {
@@ -177,6 +178,30 @@ export async function POST(request: NextRequest) {
     }
 
     await Promise.all(updates);
+
+    const firstWithDoc = lineItems.find((it) => it.documentNo);
+    const firstDocKey = firstWithDoc
+      ? `${firstWithDoc.companyCode}-${firstWithDoc.documentNo}`
+      : null;
+    try {
+      await prisma.email.create({
+        data: {
+          to: toAddresses.join(', '),
+          subject,
+          body: htmlBody ? stripHtmlToPlain(htmlBody) : null,
+          htmlBody,
+          status: 'sent',
+          errorMessage: null,
+          emailConfigId: emailConfig.id,
+          userId: user.id,
+          agingInvoiceKey: firstDocKey,
+          kind: 'aging_initial',
+          agingImportId: importId,
+        },
+      });
+    } catch (e) {
+      console.error('[Aging Send] email log create:', e);
+    }
 
     return NextResponse.json({
       success: true,

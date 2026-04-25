@@ -118,10 +118,32 @@ export default function EmailReportsClient() {
   const [confDateOn, setConfDateOn] = useState<'created' | 'sent'>('created');
   const [confCategories, setConfCategories] = useState<string[]>([]);
   const [timelineInvoiceKey, setTimelineInvoiceKey] = useState<string | null>(null);
+  const [reportImportId, setReportImportId] = useState('');
+  const [importsList, setImportsList] = useState<
+    { id: string; fileName: string; createdAt: string; lineCount: number }[]
+  >([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/aging/imports');
+        if (res.ok) {
+          const d = await res.json();
+          setImportsList(d.imports || []);
+        }
+      } catch {
+        setImportsList([]);
+      }
+    })();
+  }, []);
 
   const loadSummary = useCallback(async () => {
     try {
-      const res = await fetch('/api/email-reports/summary');
+      const s = new URLSearchParams();
+      if (reportImportId) {
+        s.set('importId', reportImportId);
+      }
+      const res = await fetch(`/api/email-reports/summary?${s.toString()}`);
       if (res.ok) {
         const d = await res.json();
         setSummary(d);
@@ -129,7 +151,7 @@ export default function EmailReportsClient() {
     } catch {
       setSummary(null);
     }
-  }, []);
+  }, [reportImportId]);
 
   const loadSendLog = useCallback(async () => {
     setSendLoading(true);
@@ -149,6 +171,9 @@ export default function EmailReportsClient() {
       if (sendDateTo) {
         s.set('dateTo', sendDateTo);
       }
+      if (reportImportId) {
+        s.set('importId', reportImportId);
+      }
       const res = await fetch(`/api/email-reports/graph-emails?${s.toString()}`);
       const d = await res.json();
       if (res.ok) {
@@ -158,7 +183,7 @@ export default function EmailReportsClient() {
     } finally {
       setSendLoading(false);
     }
-  }, [sendPage, sendPageSize, sendQ, sendStatus, sendDateFrom, sendDateTo]);
+  }, [sendPage, sendPageSize, sendQ, sendStatus, sendDateFrom, sendDateTo, reportImportId]);
 
   const loadConf = useCallback(async () => {
     setConfLoading(true);
@@ -224,17 +249,42 @@ export default function EmailReportsClient() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Email reports</h1>
         <p className="text-gray-600 mt-1 text-sm max-w-3xl">
-          Outbound send history and confirmation letters. Key figures below use the latest ageing import. Missing
-          recipient counts use the same rules as the Customer emails directory plus the sheet, then a sheet-only
-          fallback.
+          Outbound send history and confirmation letters. Choose an ageing report to scope the summary and send log
+          to that upload, or <span className="whitespace-nowrap">All</span> to include every logged send. Older sends
+          may not be linked to a file until they are logged with an import. Missing recipient rules match the
+          Customer emails directory, then the sheet, then a sheet-only fallback.
         </p>
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2 max-w-2xl">
+          <label htmlFor="email-report-import" className="text-sm font-medium text-gray-800 shrink-0">
+            Ageing report
+          </label>
+          <select
+            id="email-report-import"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white w-full min-w-0"
+            value={reportImportId}
+            onChange={(e) => {
+              setReportImportId(e.target.value);
+              setSendPage(1);
+            }}
+          >
+            <option value="">All</option>
+            {importsList.map((im) => (
+              <option key={im.id} value={im.id}>
+                {im.fileName} ({new Date(im.createdAt).toLocaleString(undefined, { dateStyle: 'medium' })}) —{' '}
+                {im.lineCount} lines
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {summary && (
         <div className="space-y-3 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Latest ageing file</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                {reportImportId ? 'Selected ageing file' : 'Latest ageing file'}
+              </p>
               <p className="text-2xl font-semibold text-gray-900 tabular-nums mt-1">{summary.receivables.lineCount}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate" title={summary.receivables.importName || ''}>
                 {summary.receivables.importName || '—'}
@@ -362,6 +412,9 @@ export default function EmailReportsClient() {
                 }
                 if (sendDateTo) {
                   s.set('dateTo', sendDateTo);
+                }
+                if (reportImportId) {
+                  s.set('importId', reportImportId);
                 }
                 downloadCsv(`/api/email-reports/graph-emails?${s.toString()}`);
               }}
