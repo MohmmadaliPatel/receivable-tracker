@@ -36,9 +36,12 @@ export class EmailConfigService {
     });
   }
 
-  /** @deprecated Use getActiveConfig() */
-  static async getActiveConfigForUser(_userId: string) {
-    return this.getActiveConfig();
+  /** Active mailbox for the given user (for send + email log rows scoped to that user). */
+  static async getActiveConfigForUser(userId: string) {
+    return prisma.emailConfig.findFirst({
+      where: { userId, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
   }
 
   static async getConfigById(id: string) {

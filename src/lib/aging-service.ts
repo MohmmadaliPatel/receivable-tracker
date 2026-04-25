@@ -499,7 +499,7 @@ export async function getCustomerGroups(
     totalEmailsCount: number;
     lastSentAt: string | null;
     hasResponse: boolean;
-    /** true if at least one line has a sent message and no reply (bulk follow-up candidate) */
+    /** true if at least one line can receive a bulk follow-up (no reply; has thread id and/or prior follow-up logged) */
     hasUnansweredSent: boolean;
   }>
 > {
@@ -565,7 +565,12 @@ export async function getCustomerGroups(
           : c.sentAt
         : c?.lastFollowupAt ?? c?.sentAt ?? null;
     const lineHasResp = c?.lastResponseAt != null;
-    const lineUnanswered = !!(c?.sentMessageId && !c?.lastResponseAt);
+    // Follow-up list: can reply in thread (sentMessageId) OR we already recorded a follow-up
+    // (followupCount) so the row still appears like the status badge, even if message id is missing.
+    const lineUnanswered =
+      !!c &&
+      c.lastResponseAt == null &&
+      (!!c.sentMessageId?.trim() || (c.followupCount ?? 0) > 0);
 
     if (!groups.has(key)) {
       groups.set(key, {

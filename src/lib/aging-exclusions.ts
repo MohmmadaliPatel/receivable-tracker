@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { readFile } from 'fs/promises';
 import { prisma } from './prisma';
+import { computeAndPersistSnapshotMetrics } from './aging-snapshot-metrics';
 
 /**
  * Internal company exclusion logic for ageing reports.
@@ -287,6 +288,14 @@ export async function reapplyExclusionsForLatestImport(userId: string): Promise<
   if (toInclude.length > 0) {
     await prisma.agingLineItem.updateMany({ where: { id: { in: toInclude } }, data: { excluded: false } });
     updated += toInclude.length;
+  }
+
+  if (updated > 0) {
+    try {
+      await computeAndPersistSnapshotMetrics(userId, latestImport.id);
+    } catch (e) {
+      console.error('[AgingExclusions] snapshot metrics refresh after exclusion reapply failed:', e);
+    }
   }
 
   return { updated };

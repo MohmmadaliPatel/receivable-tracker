@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 
 /**
  * Bulk local-PDF email send: multipart/form-data only. PDF bytes stay in memory (base64 for Graph) — never written to disk.
- * Uses the same active **Microsoft Graph** `EmailConfig` as `/api/send-email` (see `EmailConfigService.getActiveConfig()`).
+ * Uses the active **Microsoft Graph** `EmailConfig` for the current user (see `EmailConfigService.getActiveConfigForUser()`).
  *
  * Form fields: `to`, `documentNumber`, optional `attachment` (one file);
  * `subject` (optional), `textBody` and/or `htmlBody` (optional, defaults if missing).
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid email address' }, { status: 400 });
     }
 
-    const config = await EmailConfigService.getActiveConfig();
+    const config = await EmailConfigService.getActiveConfigForUser(user.id);
     if (!config) {
       return NextResponse.json(
         { success: false, error: 'No email configuration found. Please create an active one first.' },

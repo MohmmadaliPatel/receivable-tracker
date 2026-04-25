@@ -36,17 +36,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get active config or specified config
+    // Get active config for this user, or a specific config they own
     let config;
     if (configId) {
       config = await EmailConfigService.getConfigById(configId);
+      if (!config || config.userId !== user.id) {
+        return NextResponse.json(
+          { error: 'Invalid or unauthorized email configuration.' },
+          { status: 403 }
+        );
+      }
     } else {
-      config = await EmailConfigService.getActiveConfig();
+      config = await EmailConfigService.getActiveConfigForUser(user.id);
     }
 
     if (!config) {
       return NextResponse.json(
-        { error: 'No email configuration found. Please create one first.' },
+        { error: 'No email configuration found. Please create an active one for your account first.' },
         { status: 404 }
       );
     }

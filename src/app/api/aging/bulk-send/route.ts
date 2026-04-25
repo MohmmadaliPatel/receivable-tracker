@@ -5,13 +5,26 @@ import { getCustomerGroups, getLineItemsForGroup, sumLineItemsTotalBalance } fro
 import { getEmailForCustomer } from '@/lib/customer-email-directory';
 import { splitStoredEmails } from '@/lib/email-parser';
 import { getCurrentUser } from '@/lib/simple-auth';
-import { collectAgingSendAttachments } from '@/lib/aging-import-attachments';
+import {
+  collectAgingSendAttachments,
+  mergeAgingSendAttachmentsWithLocalPdfs,
+  type ResolvedMailAttachment,
+} from '@/lib/aging-import-attachments';
+import { localPdfsFromFormData, stripHtmlToPlain } from '@/lib/aging-bulk-form';
 import {
   generateDefaultEmailBody,
   generateEmailSubject,
   EmailTemplateData,
   mapLineItemsToInvoiceRows,
 } from '@/lib/aging-templates';
+
+type BulkBody = {
+  importId?: string;
+  grouping?: 'name' | 'code';
+  onlyNeverSent?: boolean;
+  groupKeys?: string[];
+  companyCode?: string;
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,15 +33,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { importId, grouping, onlyNeverSent = true, groupKeys, companyCode: companyCodeBody } = body as {
-      importId?: string;
-      grouping?: 'name' | 'code';
-      onlyNeverSent?: boolean;
-      /** If provided, only these customer groups (by `groupKey`) are sent. Empty = none. */
-      groupKeys?: string[];
-      companyCode?: string;
-    };
+    const contentType = request.headers.get('content-type') || '';
+    let body: BulkBody;
+    let localByDocNo: Map<string, ResolvedMailAttachment> | null = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      const raw = form.get('payload');
+      if (typeof raw !== 'string' || !raw.trim()) {
+        return NextResponse.json({ error: 'Missing field: payload' }, { status: 400 });
+      }
+      try {
+        body = JSON.parse(raw) as BulkBody;
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON in payload' }, { status: 400 });
+      }
+      localByDocNo = await localPdfsFromFormData(form);
+    } else {
+      body = (await request.json()) as BulkBody;
+    }
+
+    const { importId, grouping, onlyNeverSent = true, groupKeys, companyCode: companyCodeBody } = body;
 
     if (!importId) {
       return NextResponse.json({ error: 'Missing importId' }, { status: 400 });
@@ -78,7 +103,12 @@ export async function POST(request: NextRequest) {
       importAttRows.map((r) => [r.customerCode, { filePath: r.filePath, fileName: r.fileName }])
     );
 
+    const local = localByDocNo ?? new Map<string, ResolvedMailAttachment>();
+
     for (const group of targets) {
+      let logTo = '';
+      let logSubject: string | null = null;
+      let logHtml: string | null = null;
       try {
         const lineItems = await getLineItemsForGroup(user.id, importId, group.lineItemIds);
         if (lineItems.length === 0) {
@@ -99,7 +129,7 @@ export async function POST(request: NextRequest) {
           g === 'code' ? 'code' : 'name'
         );
         const dirTo = directoryEmail?.emailTo?.trim();
-        let recipientEmail = dirTo || firstItem.emailTo;
+        const recipientEmail = dirTo || firstItem.emailTo;
         const directoryCc: string | null = dirTo
           ? (directoryEmail?.emailCc?.trim() || null)
           : null;
@@ -130,9 +160,15 @@ export async function POST(request: NextRequest) {
         const subject = generateEmailSubject(templateData);
         const htmlBody = generateDefaultEmailBody(templateData);
 
-        const attachments = await collectAgingSendAttachments(user.id, firstItem, importAttachmentMap);
+        let attachments = await collectAgingSendAttachments(
+          user.id,
+          firstItem,
+          importAttachmentMap
+        );
+        if (local.size > 0) {
+          attachments = mergeAgingSendAttachmentsWithLocalPdfs(attachments, lineItems, local);
+        }
 
-        // Parse multi-recipient TO and CC
         const toAddresses = splitStoredEmails(recipientEmail);
         if (toAddresses.length === 0) {
           results.skipped++;
@@ -147,12 +183,28 @@ export async function POST(request: NextRequest) {
         const toSet = new Set(toAddresses);
         const mergedCc = [...new Set(ccAddresses)].filter((e) => !toSet.has(e));
 
+        logTo = toAddresses.join(', ');
+        logSubject = subject;
+        logHtml = htmlBody;
+
         const sendResult = await GraphMailService.sendMail(emailConfig, {
           to: toAddresses.length === 1 ? toAddresses[0] : toAddresses,
           subject,
           htmlBody,
           cc: mergedCc.length > 0 ? mergedCc : undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
+        });
+
+        await prisma.email.create({
+          data: {
+            to: logTo,
+            subject: logSubject,
+            body: logHtml ? stripHtmlToPlain(logHtml) : null,
+            htmlBody: logHtml,
+            status: 'sent',
+            errorMessage: null,
+            emailConfigId: emailConfig.id,
+          },
         });
 
         const sentMessageId = sendResult?.id || '';
@@ -218,6 +270,23 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         results.errors.push(`Group ${group.groupKey}: ${msg}`);
+        if (logTo && logSubject) {
+          try {
+            await prisma.email.create({
+              data: {
+                to: logTo,
+                subject: logSubject,
+                body: logHtml ? stripHtmlToPlain(logHtml) : null,
+                htmlBody: logHtml,
+                status: 'failed',
+                errorMessage: msg,
+                emailConfigId: emailConfig.id,
+              },
+            });
+          } catch (logErr) {
+            console.error('[Aging Bulk Send] Failed to log email row:', logErr);
+          }
+        }
       }
     }
 

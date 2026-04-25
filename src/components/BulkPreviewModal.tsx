@@ -479,17 +479,40 @@ export default function BulkPreviewModal({
     setMessage(null);
     try {
       if (mode === 'send') {
-        const res = await fetch('/api/aging/bulk-send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            importId,
-            grouping,
-            onlyNeverSent,
-            groupKeys: selectedGroupKeys,
-            ...(companyCode?.trim() ? { companyCode: companyCode.trim() } : {}),
-          }),
-        });
+        const payload = {
+          importId,
+          grouping,
+          onlyNeverSent,
+          groupKeys: selectedGroupKeys,
+          ...(companyCode?.trim() ? { companyCode: companyCode.trim() } : {}),
+        };
+        let res: Response;
+        if (isReady) {
+          const form = new FormData();
+          form.append('payload', JSON.stringify(payload));
+          const uniqueDocNos = new Set<string>();
+          for (const row of docLines) {
+            const dn = String(row.documentNo || '').trim();
+            if (dn) uniqueDocNos.add(dn);
+          }
+          for (const dn of uniqueDocNos) {
+            const file = await getPdfFile(dn);
+            if (file && file.size > 0) {
+              form.append(
+                `pdf:${encodeURIComponent(dn)}`,
+                file,
+                file.name && file.name.toLowerCase().endsWith('.pdf') ? file.name : `${dn}.pdf`
+              );
+            }
+          }
+          res = await fetch('/api/aging/bulk-send', { method: 'POST', body: form });
+        } else {
+          res = await fetch('/api/aging/bulk-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
         const d = await res.json();
         if (res.ok) {
           setMessage(`Sent: ${d.sent}, skipped: ${d.skipped}, error(s): ${d.errors?.length || 0}`);
@@ -498,16 +521,39 @@ export default function BulkPreviewModal({
           setMessage(d.error || 'Failed');
         }
       } else {
-        const res = await fetch('/api/aging/bulk-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            importId,
-            grouping,
-            groupKeys: selectedGroupKeys,
-            ...(companyCode?.trim() ? { companyCode: companyCode.trim() } : {}),
-          }),
-        });
+        const payload = {
+          importId,
+          grouping,
+          groupKeys: selectedGroupKeys,
+          ...(companyCode?.trim() ? { companyCode: companyCode.trim() } : {}),
+        };
+        let res: Response;
+        if (isReady) {
+          const form = new FormData();
+          form.append('payload', JSON.stringify(payload));
+          const uniqueDocNos = new Set<string>();
+          for (const row of docLines) {
+            const dn = String(row.documentNo || '').trim();
+            if (dn) uniqueDocNos.add(dn);
+          }
+          for (const dn of uniqueDocNos) {
+            const file = await getPdfFile(dn);
+            if (file && file.size > 0) {
+              form.append(
+                `pdf:${encodeURIComponent(dn)}`,
+                file,
+                file.name && file.name.toLowerCase().endsWith('.pdf') ? file.name : `${dn}.pdf`
+              );
+            }
+          }
+          res = await fetch('/api/aging/bulk-followup', { method: 'POST', body: form });
+        } else {
+          res = await fetch('/api/aging/bulk-followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
         const d = await res.json();
         if (res.ok) {
           setMessage(

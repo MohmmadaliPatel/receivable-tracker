@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Pencil, Trash2, X } from 'lucide-react';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
 import type { Column } from '@/components/ui/DataTable';
 import { EmailAddressList } from '@/components/EmailAddressList';
@@ -454,15 +455,24 @@ export default function CustomerEmailsClient() {
       header: 'Actions',
       align: 'right',
       accessor: (r) => (
-        <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={() => openEdit(r)} className="text-sm font-medium text-blue-700 hover:underline">Edit</button>
-          <span className="text-gray-200">|</span>
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => openEdit(r)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-colors"
+            title="Edit"
+            aria-label={`Edit entry ${r.keyValue}`}
+          >
+            <Pencil className="h-4 w-4" aria-hidden />
+          </button>
           <button
             type="button"
             onClick={() => openDeleteSingleModal(r.id, r.keyValue)}
-            className="text-sm font-medium text-red-600 hover:underline"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50/90 text-red-600 shadow-sm hover:bg-red-100 transition-colors"
+            title="Delete"
+            aria-label={`Delete entry ${r.keyValue}`}
           >
-            Delete
+            <Trash2 className="h-4 w-4" aria-hidden />
           </button>
         </div>
       ),
@@ -471,9 +481,12 @@ export default function CustomerEmailsClient() {
   ], [openDeleteSingleModal, openEdit]);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-gray-50/80">
       <div className="px-6 py-4 space-y-5 flex-1 overflow-auto max-w-7xl w-full">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Customer emails</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Customer emails</h1>
+          <p className="text-sm text-gray-500 mt-1">Directory of customer To/Cc used for receivables email.</p>
+        </div>
 
         {message && (
           <div
@@ -496,7 +509,7 @@ export default function CustomerEmailsClient() {
           </div>
         )}
 
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-gray-500 mb-3">
             Filter from column headers. Export/CSV import uses the type selected in Add entry.
           </p>
@@ -509,14 +522,14 @@ export default function CustomerEmailsClient() {
                 <button
                   type="button"
                   onClick={handleExport}
-                  className="h-9 px-3 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50"
+                  className="h-9 px-3 text-sm font-medium border border-gray-200 rounded-lg bg-white hover:bg-gray-50 text-gray-800 shadow-sm"
                 >
                   Export CSV
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddModal(true)}
-                  className="h-9 px-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="h-9 px-3 text-sm font-medium bg-slate-800 text-white rounded-lg hover:bg-slate-900 shadow-sm"
                 >
                   Add entry
                 </button>
@@ -564,7 +577,7 @@ export default function CustomerEmailsClient() {
           </div>
         </div>
 
-        <section>
+        <section className="rounded-xl border border-gray-200/90 bg-white shadow-sm overflow-hidden">
           <ServerDataTable<EmailEntry>
             rows={emails}
             total={total}
@@ -695,20 +708,39 @@ export default function CustomerEmailsClient() {
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add email entry</h3>
-            <div className="space-y-4">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal
+          aria-labelledby="add-modal-title"
+          onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}
+        >
+          <div
+            className="bg-white w-full max-w-md rounded-2xl border border-gray-200 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+              <h3 id="add-modal-title" className="text-lg font-semibold text-gray-900 pr-2">
+                Add directory entry
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {addKeyType === 'customer_name' ? 'Customer name' : 'Customer code'}
-                </label>
-                <div className="flex gap-2 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Match by</label>
+                <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
                   <button
                     type="button"
                     onClick={() => setAddKeyType('customer_name')}
-                    className={`px-2 py-1 text-xs rounded-md ${
-                      addKeyType === 'customer_name' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      addKeyType === 'customer_name' ? 'bg-slate-800 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     By name
@@ -716,57 +748,62 @@ export default function CustomerEmailsClient() {
                   <button
                     type="button"
                     onClick={() => setAddKeyType('customer_code')}
-                    className={`px-2 py-1 text-xs rounded-md ${
-                      addKeyType === 'customer_code' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      addKeyType === 'customer_code' ? 'bg-slate-800 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     By code
                   </button>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  {addKeyType === 'customer_name' ? 'Customer name' : 'Customer code'}
+                </label>
                 <input
                   type="text"
                   value={newEntry.keyValue}
                   onChange={(e) => setNewEntry({ ...newEntry, keyValue: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder={addKeyType === 'customer_name' ? 'Acme Corporation' : '100001'}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer name (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Display company name (optional)</label>
                 <input
                   type="text"
                   value={newEntry.companyName}
                   onChange={(e) => setNewEntry({ ...newEntry, companyName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder="Cleanmax"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email to</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email to</label>
                 <input
                   type="text"
                   value={newEntry.emailTo}
                   onChange={(e) => setNewEntry({ ...newEntry, emailTo: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl font-mono shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder="a@b.com, b@b.com or Name &lt;email&gt;"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Cc (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Cc (optional)</label>
                 <input
                   type="text"
                   value={newEntry.emailCc}
                   onChange={(e) => setNewEntry({ ...newEntry, emailCc: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl font-mono shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder="cc1@example.com, cc2@example.com"
                 />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+            <div className="px-5 py-4 bg-gray-50/90 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -774,7 +811,7 @@ export default function CustomerEmailsClient() {
                 type="button"
                 onClick={handleAdd}
                 disabled={!newEntry.keyValue || !newEntry.emailTo}
-                className="flex-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-white bg-slate-800 rounded-xl hover:bg-slate-900 disabled:opacity-50 shadow-sm"
               >
                 Add entry
               </button>
@@ -785,61 +822,105 @@ export default function CustomerEmailsClient() {
 
       {editEntry && editForm && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal
           aria-labelledby="edit-modal-title"
+          onClick={(e) => e.target === e.currentTarget && !savingEdit && closeEdit()}
         >
-          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
-            <h3 id="edit-modal-title" className="text-lg font-semibold text-gray-900 mb-4">
-              Edit email entry
-            </h3>
-            <div className="space-y-4">
+          <div
+            className="bg-white w-full max-w-lg rounded-2xl border border-gray-200 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-800">
+                  <Pencil className="h-5 w-5" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="edit-modal-title" className="text-lg font-semibold text-gray-900">
+                    Edit directory entry
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">Update the key and To/Cc for this customer.</p>
+                  <div className="mt-2">
+                    <span
+                      className={`inline-flex text-xs font-medium rounded-full px-2.5 py-0.5 ${
+                        editEntry.keyType === 'customer_name'
+                          ? 'bg-indigo-50 text-indigo-800 border border-indigo-100'
+                          : 'bg-slate-100 text-slate-800 border border-slate-200'
+                      }`}
+                    >
+                      {editEntry.keyType === 'customer_name' ? 'By customer name' : 'By customer code'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !savingEdit && closeEdit()}
+                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4 max-h-[min(70vh,32rem)] overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {editEntry.keyType === 'customer_name' ? 'Customer name' : 'Customer code'}
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="edit-keyValue">
+                  {editEntry.keyType === 'customer_name' ? 'Customer name (key)' : 'Customer code (key)'}
                 </label>
                 <input
+                  id="edit-keyValue"
                   type="text"
                   value={editForm.keyValue}
                   onChange={(e) => setEditForm({ ...editForm, keyValue: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer name (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="edit-companyName">
+                  Display company name (optional)
+                </label>
                 <input
+                  id="edit-companyName"
                   type="text"
                   value={editForm.companyName}
                   onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email to</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="edit-emailTo">
+                  Email to
+                </label>
                 <input
+                  id="edit-emailTo"
                   type="text"
                   value={editForm.emailTo}
                   onChange={(e) => setEditForm({ ...editForm, emailTo: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white shadow-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  placeholder="a@b.com, Name &lt;email&gt;…"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Cc (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="edit-emailCc">
+                  Email Cc (optional)
+                </label>
                 <input
+                  id="edit-emailCc"
                   type="text"
                   value={editForm.emailCc}
                   onChange={(e) => setEditForm({ ...editForm, emailCc: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3.5 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white shadow-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                 />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+            <div className="px-5 py-4 bg-gray-50/90 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button
                 type="button"
                 onClick={closeEdit}
                 disabled={savingEdit}
-                className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -847,9 +928,16 @@ export default function CustomerEmailsClient() {
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={savingEdit || !editForm.keyValue.trim() || !editForm.emailTo.trim()}
-                className="flex-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-slate-800 rounded-xl hover:bg-slate-900 disabled:opacity-50 shadow-sm"
               >
-                {savingEdit ? 'Saving…' : 'Save'}
+                {savingEdit ? (
+                  <>
+                    <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  'Save changes'
+                )}
               </button>
             </div>
           </div>

@@ -185,3 +185,29 @@ export async function collectAgingSendAttachments(
   }
   return out;
 }
+
+type LineWithDoc = { documentNo: string | null | undefined };
+
+/**
+ * Merges server-side attachments (import + rules) with per–document PDFs from a local folder upload.
+ * Local PDFs are matched by `documentNo`; if a file uses the same `name` as a server attachment, the local one wins.
+ */
+export function mergeAgingSendAttachmentsWithLocalPdfs(
+  base: ResolvedMailAttachment[],
+  lineItems: LineWithDoc[],
+  localByDocNo: Map<string, ResolvedMailAttachment>
+): ResolvedMailAttachment[] {
+  const byName = new Map<string, ResolvedMailAttachment>();
+  for (const a of base) {
+    byName.set(a.name.toLowerCase(), a);
+  }
+  for (const li of lineItems) {
+    const dn = (li.documentNo == null ? '' : String(li.documentNo)).trim();
+    if (!dn) continue;
+    const local = localByDocNo.get(dn);
+    if (local) {
+      byName.set(local.name.toLowerCase(), local);
+    }
+  }
+  return Array.from(byName.values());
+}

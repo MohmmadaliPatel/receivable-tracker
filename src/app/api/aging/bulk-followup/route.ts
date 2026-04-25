@@ -4,8 +4,20 @@ import { GraphMailService } from '@/lib/graph-mail-service';
 import { getCustomerGroups, getLineItemsForGroup, sumLineItemsTotalBalance } from '@/lib/aging-service';
 import { generateFollowupEmailBody, EmailTemplateData, mapLineItemsToInvoiceRows } from '@/lib/aging-templates';
 import { getCurrentUser } from '@/lib/simple-auth';
-import { collectAgingSendAttachments } from '@/lib/aging-import-attachments';
+import {
+  collectAgingSendAttachments,
+  mergeAgingSendAttachmentsWithLocalPdfs,
+  type ResolvedMailAttachment,
+} from '@/lib/aging-import-attachments';
+import { localPdfsFromFormData, stripHtmlToPlain } from '@/lib/aging-bulk-form';
 import { parseEmailAddresses } from '@/lib/email-parser';
+
+type FollowupBody = {
+  importId?: string;
+  grouping?: 'name' | 'code';
+  groupKeys?: string[];
+  companyCode?: string;
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,13 +26,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { importId, grouping, groupKeys, companyCode: companyCodeBody } = body as {
-      importId?: string;
-      grouping?: 'name' | 'code';
-      groupKeys?: string[];
-      companyCode?: string;
-    };
+    const contentType = request.headers.get('content-type') || '';
+    let body: FollowupBody;
+    let localByDocNo: Map<string, ResolvedMailAttachment> | null = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      const raw = form.get('payload');
+      if (typeof raw !== 'string' || !raw.trim()) {
+        return NextResponse.json({ error: 'Missing field: payload' }, { status: 400 });
+      }
+      try {
+        body = JSON.parse(raw) as FollowupBody;
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON in payload' }, { status: 400 });
+      }
+      localByDocNo = await localPdfsFromFormData(form);
+    } else {
+      body = (await request.json()) as FollowupBody;
+    }
+
+    const { importId, grouping, groupKeys, companyCode: companyCodeBody } = body;
 
     if (!importId) {
       return NextResponse.json({ error: 'Missing importId parameter' }, { status: 400 });
@@ -51,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Find groups that have been sent but have no response
     const groupsToFollowUp: typeof groups = [];
-    
+
     for (const group of groups) {
       // Check if any invoice in this group needs follow-up
       const lineItems = await getLineItemsForGroup(user.id, importId, group.lineItemIds);
@@ -61,7 +87,7 @@ export async function POST(request: NextRequest) {
 
       for (const item of lineItems) {
         if (!item.documentNo) continue;
-        
+
         const invoiceKey = `${item.companyCode}-${item.documentNo}`;
         const chase = await prisma.invoiceChase.findUnique({
           where: {
@@ -72,11 +98,11 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Send follow-up if:
-        // - Has been sent (sentMessageId exists)
-        // - No response received (lastResponseAt is null)
-        // - Hasn't exceeded max follow-ups (optional check)
-        if (chase?.sentMessageId && !chase.lastResponseAt) {
+        if (
+          chase &&
+          chase.lastResponseAt == null &&
+          (!!chase.sentMessageId?.trim() || (chase.followupCount ?? 0) > 0)
+        ) {
           groupsToFollowUp.push(group);
           break; // Only add group once
         }
@@ -96,6 +122,8 @@ export async function POST(request: NextRequest) {
       importAttRows.map((r) => [r.customerCode, { filePath: r.filePath, fileName: r.fileName }])
     );
 
+    const local = localByDocNo ?? new Map<string, ResolvedMailAttachment>();
+
     let toFollowUp = groupsToFollowUp;
     if (groupKeys !== undefined) {
       if (groupKeys.length === 0) {
@@ -107,6 +135,9 @@ export async function POST(request: NextRequest) {
 
     // Send follow-ups
     for (const group of toFollowUp) {
+      let logTo = '';
+      let logSubject: string | null = null;
+      let logHtml: string | null = null;
       try {
         const lineItems = await getLineItemsForGroup(user.id, importId, group.lineItemIds);
         if (lineItems.length === 0) continue;
@@ -116,19 +147,30 @@ export async function POST(request: NextRequest) {
         }
 
         const firstItem = lineItems[0];
-        const invoiceKey = `${firstItem.companyCode}-${firstItem.documentNo}`;
-        
-        const chase = await prisma.invoiceChase.findUnique({
-          where: {
-            userId_invoiceKey: {
-              userId: user.id,
-              invoiceKey,
+        /** Prefer any line that has a Graph message id (thread root for reply), not only the first row. */
+        let chase: Awaited<ReturnType<typeof prisma.invoiceChase.findUnique>> = null;
+        for (const item of lineItems) {
+          if (!item.documentNo) continue;
+          const ik = `${item.companyCode}-${item.documentNo}`;
+          const ch = await prisma.invoiceChase.findUnique({
+            where: {
+              userId_invoiceKey: {
+                userId: user.id,
+                invoiceKey: ik,
+              },
             },
-          },
-        });
+          });
+          if (ch?.sentMessageId?.trim()) {
+            chase = ch;
+            break;
+          }
+        }
 
-        if (!chase?.sentMessageId) {
+        if (!chase?.sentMessageId?.trim()) {
           results.skipped++;
+          results.errors.push(
+            `Skipped ${group.groupKey}: no Graph message id for a threaded reply (use a line that has the initial send, or re-send).`
+          );
           continue;
         }
 
@@ -145,12 +187,16 @@ export async function POST(request: NextRequest) {
         };
 
         const followupBody = generateFollowupEmailBody(templateData);
+        const logSubjectVal = `Follow-up: ${group.customerName}`.trim();
 
-        const attachments = await collectAgingSendAttachments(
+        let attachments = await collectAgingSendAttachments(
           user.id,
           firstItem,
           importAttachmentMap
         );
+        if (local.size > 0) {
+          attachments = mergeAgingSendAttachmentsWithLocalPdfs(attachments, lineItems, local);
+        }
 
         // Prefer directory-merged group addresses (same as getCustomerGroups / first send), then chase, then line
         let toList = parseEmailAddresses(group.emailTo);
@@ -169,6 +215,10 @@ export async function POST(request: NextRequest) {
         if (ccList.length === 0) ccList = parseEmailAddresses(firstItem.emailCc ?? null);
         const mergedCc = [...new Set(ccList)].filter((e) => !toSet.has(e));
 
+        logTo = toList.join(', ');
+        logSubject = logSubjectVal;
+        logHtml = followupBody;
+
         // Send threaded reply
         await GraphMailService.replyToMessage(emailConfig, chase.sentMessageId, {
           to: toArg,
@@ -177,14 +227,26 @@ export async function POST(request: NextRequest) {
           attachments: attachments.length > 0 ? attachments : undefined,
         });
 
+        await prisma.email.create({
+          data: {
+            to: logTo,
+            subject: logSubject,
+            body: logHtml ? stripHtmlToPlain(logHtml) : null,
+            htmlBody: logHtml,
+            status: 'sent',
+            errorMessage: null,
+            emailConfigId: emailConfig.id,
+          },
+        });
+
         // Update follow-up tracking
         const now = new Date();
-        
+
         for (const item of lineItems) {
           if (!item.documentNo) continue;
-          
+
           const itemKey = `${item.companyCode}-${item.documentNo}`;
-          
+
           const existingChase = await prisma.invoiceChase.findUnique({
             where: {
               userId_invoiceKey: {
@@ -224,6 +286,23 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         results.errors.push(`Group ${group.groupKey}: ${msg}`);
+        if (logTo && logSubject) {
+          try {
+            await prisma.email.create({
+              data: {
+                to: logTo,
+                subject: logSubject,
+                body: logHtml ? stripHtmlToPlain(logHtml) : null,
+                htmlBody: logHtml,
+                status: 'failed',
+                errorMessage: msg,
+                emailConfigId: emailConfig.id,
+              },
+            });
+          } catch (logErr) {
+            console.error('[Aging Bulk Followup] Failed to log email row:', logErr);
+          }
+        }
       }
     }
 
