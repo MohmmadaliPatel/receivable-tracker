@@ -7,6 +7,9 @@ import {
   getUserExclusionLookup,
   shouldExcludeLineItemSync,
 } from './aging-exclusions';
+import { graphMessageIdForCreateReply } from '@/lib/graph-message-id';
+
+export { graphMessageIdForCreateReply } from '@/lib/graph-message-id';
 
 function formatGenerationMonthFromDate(d: Date | null): string | null {
   if (!d) return null;
@@ -475,7 +478,9 @@ export async function importAgingData(
 /**
  * Count initial + follow-up activity for a single `InvoiceChase` row scoped
  * to one ageing `importId` (outreachRoundsJson + followups with matching importId).
- * Legacy follow-ups without `importId` in JSON do not count for that import.
+ * Follow-ups in JSON with `importId` matching the argument count; entries with no
+ * `importId` (legacy) count only for this `importId` when `chase.lastImportId === importId`
+ * so we do not attribute untagged rows to the wrong file on multi-import chases.
  */
 export function getChaseOutreachForImport(
   c:
@@ -483,6 +488,7 @@ export function getChaseOutreachForImport(
         outreachRoundsJson: string | null;
         followupsJson: string | null;
         lastResponseAt: Date | null;
+        lastImportId: string | null;
       }
     | undefined,
   importId: string
@@ -522,7 +528,11 @@ export function getChaseOutreachForImport(
     try {
       const followups = JSON.parse(c.followupsJson) as { sentAt: string; importId?: string }[];
       for (const f of followups) {
-        if (f?.importId === importId) {
+        const matchesImport = f?.importId === importId;
+        // Legacy: no importId in JSON; attribute to current import when chase is still tied to it.
+        const legacyForThisImport =
+          (f?.importId == null || f.importId === '') && c.lastImportId === importId;
+        if (matchesImport || legacyForThisImport) {
           followupCount += 1;
           const d = f.sentAt ? new Date(f.sentAt) : null;
           if (d && !isNaN(d.getTime())) {
@@ -552,8 +562,11 @@ export type OutreachRoundEntry = { importId: string; sentAt: string; sentMessage
 
 /**
  * Graph `createReply` must target the **initial send for this ageing import** (same conversation).
- * The global `sentMessageId` on chase may point at a different import's message after a new
- * file is sent, which yields ErrorItemNotFound. Prefer `sentMessageId` stored on the round for `importId`.
+ * When `lastImportId === importId`, `sentMessageId` on the row is updated on every new initial
+ * send; prefer it **before** the per-round id so a re-sent initial does not keep replying to a
+ * stale `outreachRoundsJson` id (404 / ErrorItemNotFound). When the user follows up for an
+ * *older* file while a newer file was sent on the same invoice, `lastImportId !== importId` and
+ * we use the round for `importId` only.
  */
 export function getThreadRootMessageIdForImport(
   chase:
@@ -567,21 +580,55 @@ export function getThreadRootMessageIdForImport(
   importId: string
 ): string | null {
   if (!chase) return null;
+  if (chase.lastImportId === importId) {
+    const g = graphMessageIdForCreateReply(chase.sentMessageId);
+    if (g) return g;
+  }
   if (chase.outreachRoundsJson) {
     try {
       const rounds = JSON.parse(chase.outreachRoundsJson) as OutreachRoundEntry[];
       const r = rounds.find((x) => x?.importId === importId);
       if (r?.sentMessageId?.trim()) {
-        return r.sentMessageId.trim();
+        return graphMessageIdForCreateReply(r.sentMessageId);
       }
     } catch {
       /* ignore */
     }
   }
-  if (chase.lastImportId === importId && chase.sentMessageId?.trim()) {
-    return chase.sentMessageId.trim();
-  }
   return null;
+}
+
+/**
+ * After Graph resolves a new root message id (e.g. Sent Items backfill), merge it into
+ * `outreachRoundsJson` for this import and keep row-level `sentMessageId` in sync when appropriate.
+ */
+export function mergeResolvedRootMessageIdIntoChaseData(
+  outreachRoundsJson: string | null,
+  importId: string,
+  newMessageId: string,
+  lastImportId: string | null
+): { outreachRoundsJson: string; sentMessageId?: string } {
+  let rounds: OutreachRoundEntry[] = [];
+  if (outreachRoundsJson) {
+    try {
+      rounds = JSON.parse(outreachRoundsJson) as OutreachRoundEntry[];
+    } catch {
+      rounds = [];
+    }
+  }
+  const idx = rounds.findIndex((r) => r?.importId === importId);
+  if (idx >= 0) {
+    rounds[idx] = { ...rounds[idx]!, sentMessageId: newMessageId };
+  } else {
+    rounds.push({ importId, sentAt: new Date().toISOString(), sentMessageId: newMessageId });
+  }
+  const out: { outreachRoundsJson: string; sentMessageId?: string } = {
+    outreachRoundsJson: JSON.stringify(rounds),
+  };
+  if (lastImportId === importId) {
+    out.sentMessageId = newMessageId;
+  }
+  return out;
 }
 
 /**
@@ -673,7 +720,18 @@ export async function getCustomerGroups(
     const lineTotal = o.total;
     const lineLast = o.lastSentAt;
     const lineHasResp = c?.lastResponseAt != null;
-    const lineUnanswered = !!c && o.unanswered;
+    // Bulk/single follow-up in Graph needs a resolvable M365 message id for this import; otherwise the row is not "follow-up ready".
+    const lineUnanswered =
+      !!c &&
+      o.unanswered &&
+      !!getThreadRootMessageIdForImport(
+        {
+          sentMessageId: c.sentMessageId,
+          lastImportId: c.lastImportId,
+          outreachRoundsJson: c.outreachRoundsJson,
+        },
+        importId
+      );
 
     if (!groups.has(key)) {
       groups.set(key, {

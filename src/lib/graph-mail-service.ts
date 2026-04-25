@@ -1,4 +1,19 @@
 import { EmailConfig } from '@prisma/client';
+import { graphMessageIdForCreateReply } from '@/lib/graph-message-id';
+import { parseEmailAddresses } from '@/lib/email-parser';
+
+/** Comma- or list-style strings must become one Graph recipient per address (not a single bad address). */
+function normalizeAddressList(v: string | string[] | undefined): string[] {
+  if (v == null) return [];
+  if (Array.isArray(v)) {
+    return [...new Set(v.flatMap((e) => parseEmailAddresses(String(e))))];
+  }
+  return parseEmailAddresses(String(v));
+}
+
+function odataStringLiteral(s: string): string {
+  return `'${s.replace(/'/g, "''")}'`;
+}
 
 // Get access token using client credentials flow
 async function getAccessToken(config: EmailConfig): Promise<string> {
@@ -50,8 +65,29 @@ export interface SendMailOptions {
   saveToSentItems?: boolean;
 }
 
+/** Result of sending a follow-up in-thread; `resolvedOriginalId` is set when a stale id was backfilled from Sent Items. */
+export type GraphReplyToMessageResult = {
+  replyDraftId: string;
+  resolvedOriginalId?: string;
+};
+
 /** Graph sendMail does not return a message id; we create a draft, send it, and return the id. */
 export class GraphMailService {
+  /** Outlook: prefer immutable ids so the same id works after draft → Sent Items. */
+  private static graphMessageRequestHeaders(
+    accessToken: string,
+    opts?: { withJsonContentType?: boolean }
+  ): Record<string, string> {
+    const h: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      Prefer: 'IdType="ImmutableId"',
+    };
+    if (opts?.withJsonContentType) {
+      h['Content-Type'] = 'application/json';
+    }
+    return h;
+  }
+
   static async sendMail(
     config: EmailConfig,
     options: SendMailOptions,
@@ -60,21 +96,27 @@ export class GraphMailService {
       const accessToken = await GraphMailService.getAccessToken(config);
       const userPrincipal = encodeURIComponent(config.fromEmail);
 
-      const toRecipients = Array.isArray(options.to)
-        ? options.to.map((email) => ({ emailAddress: { address: email } }))
-        : [{ emailAddress: { address: options.to } }];
+      const toList = normalizeAddressList(options.to);
+      if (toList.length === 0) {
+        throw new Error('No valid To recipient address.');
+      }
+      const toRecipients = toList.map((email) => ({ emailAddress: { address: email } }));
 
-      const ccRecipients = options.cc
-        ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((email) => ({
-            emailAddress: { address: email },
-          }))
-        : undefined;
+      const ccList = options.cc != null && options.cc !== '' ? normalizeAddressList(options.cc) : [];
+      const ccRecipients =
+        ccList.length > 0
+          ? ccList.map((email) => ({
+              emailAddress: { address: email },
+            }))
+          : undefined;
 
-      const bccRecipients = options.bcc
-        ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]).map((email) => ({
-            emailAddress: { address: email },
-          }))
-        : undefined;
+      const bccList = options.bcc != null && options.bcc !== '' ? normalizeAddressList(options.bcc) : [];
+      const bccRecipients =
+        bccList.length > 0
+          ? bccList.map((email) => ({
+              emailAddress: { address: email },
+            }))
+          : undefined;
 
       const graphAttachments = options.attachments?.map((a) => ({
         '@odata.type': '#microsoft.graph.fileAttachment',
@@ -99,10 +141,7 @@ export class GraphMailService {
         `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages`,
         {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
+          headers: GraphMailService.graphMessageRequestHeaders(accessToken, { withJsonContentType: true }),
           body: JSON.stringify(message),
         },
       );
@@ -121,7 +160,7 @@ export class GraphMailService {
         `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${idSeg}/send`,
         {
           method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: GraphMailService.graphMessageRequestHeaders(accessToken),
         },
       );
       if (!sendRes.ok) {
@@ -159,48 +198,82 @@ export class GraphMailService {
     return encodeURIComponent(id.trim());
   }
 
-  // Send a threaded reply to an existing message.
-  // Uses Graph's createReply + PATCH + send flow so the follow-up appears in the same thread.
-  static async replyToMessage(
-    config: EmailConfig,
-    originalMessageId: string,
+  /**
+   * After a 404 on createReply, find the most recent sent message to `toEmail` in Sent Items
+   * and return its id (immutable when Prefer is used on GET).
+   */
+  private static async findRecentSentMessageIdForRecipient(
+    accessToken: string,
+    userPrincipal: string,
+    toEmail: string,
+  ): Promise<string | null> {
+    const emailLower = toEmail.trim().toLowerCase();
+    if (!emailLower) return null;
+    const lit = odataStringLiteral(emailLower);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const cutIso = cutoff.toISOString();
+    const filter = `toRecipients/any(t:t/emailAddress/address eq ${lit}) and sentDateTime ge ${cutIso}`;
+
+    const params = new URLSearchParams({
+      $select: 'id',
+      $filter: filter,
+      $top: '5',
+      $orderby: 'sentDateTime desc',
+    });
+
+    const url = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/mailFolders('SentItems')/messages?${params.toString()}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: GraphMailService.graphMessageRequestHeaders(accessToken),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('[Graph] Sent Items search failed:', res.status, err.substring(0, 400));
+      return null;
+    }
+    const data = (await res.json()) as { value?: { id?: string }[] };
+    const first = data.value?.[0]?.id;
+    return first?.trim() ? first.trim() : null;
+  }
+
+  /**
+   * Create reply draft, PATCH, send. Returns the *follow-up* draft id (last step's draft, now sent) — see replyToMessage.
+   * Side effect: throws with createReply / PATCH / send errors.
+   */
+  private static async runCreateReplyAndSend(
+    accessToken: string,
+    userPrincipal: string,
+    messageId: string,
     options: Omit<SendMailOptions, 'subject'>,
   ): Promise<string> {
-    const mid = originalMessageId.trim();
-    if (!mid) {
-      throw new Error('Cannot reply: missing message id for the initial send. Send the initial again for this ageing file.');
-    }
-    const accessToken = await GraphMailService.getAccessToken(config);
-    const userPrincipal = encodeURIComponent(config.fromEmail);
-    const idSeg = GraphMailService.messageIdPathSegment(mid);
-
-    // Step 1 – create a reply draft (copies To/Subject/conversationId from the original)
+    const idSeg = GraphMailService.messageIdPathSegment(messageId);
     const createRes = await fetch(
       `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${idSeg}/createReply`,
       {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: GraphMailService.graphMessageRequestHeaders(accessToken, { withJsonContentType: true }),
         body: JSON.stringify({}),
-      }
+      },
     );
     if (!createRes.ok) {
       const err = await createRes.text();
-      throw new Error(`createReply failed (${createRes.status}): ${err}`);
+      const e = new Error(`createReply failed (${createRes.status}): ${err}`);
+      (e as Error & { statusCode?: number }).statusCode = createRes.status;
+      throw e;
     }
-    const draft = await createRes.json();
+    const draft = (await createRes.json()) as { id: string };
     const draftId: string = draft.id;
 
-    // Step 2 – PATCH the draft: set custom body, CC recipients, and attachments
-    const toRecipients = Array.isArray(options.to)
-      ? options.to.map((a) => ({ emailAddress: { address: a } }))
-      : [{ emailAddress: { address: options.to } }];
+    const toList = normalizeAddressList(options.to);
+    if (toList.length === 0) {
+      throw new Error('No valid To recipient address for the follow-up reply.');
+    }
+    const toRecipients = toList.map((a) => ({ emailAddress: { address: a } }));
 
-    const ccRecipients = options.cc
-      ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((a) => ({ emailAddress: { address: a } }))
-      : undefined;
+    const ccList = options.cc != null && options.cc !== '' ? normalizeAddressList(options.cc) : [];
+    const ccRecipients =
+      ccList.length > 0 ? ccList.map((a) => ({ emailAddress: { address: a } })) : undefined;
 
     const graphAttachments = options.attachments?.map((a) => ({
       '@odata.type': '#microsoft.graph.fileAttachment',
@@ -209,7 +282,7 @@ export class GraphMailService {
       contentBytes: a.contentBytes,
     }));
 
-    const patchBody: any = {
+    const patchBody: Record<string, unknown> = {
       toRecipients,
       body: {
         contentType: options.htmlBody ? 'HTML' : 'Text',
@@ -224,31 +297,79 @@ export class GraphMailService {
       `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftSeg}`,
       {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: GraphMailService.graphMessageRequestHeaders(accessToken, { withJsonContentType: true }),
         body: JSON.stringify(patchBody),
-      }
+      },
     );
     if (!patchRes.ok) {
       const err = await patchRes.text();
       throw new Error(`PATCH draft failed (${patchRes.status}): ${err}`);
     }
 
-    // Step 3 – send the draft
     const sendRes = await fetch(
       `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftSeg}/send`,
       {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
+        headers: GraphMailService.graphMessageRequestHeaders(accessToken),
+      },
     );
     if (!sendRes.ok) {
       const err = await sendRes.text();
       throw new Error(`Send draft failed (${sendRes.status}): ${err}`);
     }
     return draftId;
+  }
+
+  // Send a threaded reply to an existing message.
+  // Uses Graph's createReply + PATCH + send flow so the follow-up appears in the same thread.
+  static async replyToMessage(
+    config: EmailConfig,
+    originalMessageId: string,
+    options: Omit<SendMailOptions, 'subject'>,
+  ): Promise<GraphReplyToMessageResult> {
+    const mid = graphMessageIdForCreateReply(originalMessageId);
+    if (!mid) {
+      throw new Error('Cannot reply: missing message id for the initial send. Send the initial again for this ageing file.');
+    }
+    const accessToken = await GraphMailService.getAccessToken(config);
+    const userPrincipal = encodeURIComponent(config.fromEmail);
+
+    const toList = normalizeAddressList(options.to);
+    const primaryTo = toList[0] ?? '';
+
+    let resolvedOriginalId: string | undefined;
+    let threadRoot = mid;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const replyDraftId = await GraphMailService.runCreateReplyAndSend(
+          accessToken,
+          userPrincipal,
+          threadRoot,
+          options,
+        );
+        return { replyDraftId, ...(resolvedOriginalId && { resolvedOriginalId }) };
+      } catch (e) {
+        const errObj = e as Error & { statusCode?: number };
+        const msg = e instanceof Error ? e.message : String(e);
+        const is404 =
+          errObj.statusCode === 404 || msg.includes(' 404:') || msg.includes('(404):') || msg.includes('ErrorItemNotFound');
+        if (attempt === 0 && is404 && primaryTo) {
+          const found = await GraphMailService.findRecentSentMessageIdForRecipient(
+            accessToken,
+            userPrincipal,
+            primaryTo,
+          );
+          if (found && found !== threadRoot) {
+            resolvedOriginalId = found;
+            threadRoot = found;
+            continue;
+          }
+        }
+        throw e;
+      }
+    }
+    throw new Error('createReply: exceeded retry');
   }
 
   /** Raw RFC 822 MIME for the message (save as .eml). Requires Mail.Read on the mailbox. */
@@ -258,7 +379,7 @@ export class GraphMailService {
       const userPrincipal = encodeURIComponent(config.fromEmail);
       const mid = encodeURIComponent(messageId);
       const url = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${mid}/$value`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const res = await fetch(url, { headers: GraphMailService.graphMessageRequestHeaders(accessToken) });
       if (!res.ok) {
         const err = await res.text();
         console.error(`[Graph] getMessageMimeValue HTTP ${res.status}:`, err.substring(0, 500));

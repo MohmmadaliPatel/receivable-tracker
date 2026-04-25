@@ -7,16 +7,7 @@ import BulkPreviewModal, { type GroupRowWithStatus } from '@/components/BulkPrev
 import { CompactEmailTableCell } from '@/components/EmailAddressList';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
 import type { Column } from '@/components/ui/DataTable';
-import type { GroupSortField } from '@/lib/aging-groups-list';
-
-type StatusFilter = 'all' | 'not_sent' | 'no_response' | 'followup' | 'response';
-
-function groupStatusLabel(g: GroupRowWithStatus): StatusFilter {
-  if (g.hasResponse) return 'response';
-  if (g.totalEmailsCount === 0) return 'not_sent';
-  if (g.followupCount >= 1) return 'followup';
-  return 'no_response';
-}
+import { groupStatusLabel, type GroupSortField } from '@/lib/aging-groups-list';
 
 function statusBadgeText(g: GroupRowWithStatus): string {
   if (g.hasResponse) return 'Response received';

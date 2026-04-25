@@ -35,6 +35,26 @@ type BulkLineDocumentRow = {
 
 type DocPdfViewFilter = 'all' | 'found' | 'not_found';
 
+function formatBulkFollowupResultMessage(d: {
+  sent?: number;
+  skipped?: number;
+  errors?: string[];
+}): string {
+  const sent = d.sent ?? 0;
+  const skipped = d.skipped ?? 0;
+  const errList = Array.isArray(d.errors) ? d.errors : [];
+  const head = `Follow-up: ${sent} sent, ${skipped} skipped, ${errList.length} error(s)`;
+  if (errList.length > 0) {
+    const detail = errList.slice(0, 8).join('\n');
+    const out = `${head}\n\n${detail}`;
+    return out.length > 800 ? `${out.slice(0, 797)}…` : out;
+  }
+  if (sent === 0 && skipped > 0) {
+    return `${head}\n\nNo messages sent. Groups may be missing a Microsoft 365 message for this ageing file (re-send the initial), or To addresses are invalid.`;
+  }
+  return head;
+}
+
 function escapeCsvField(value: string): string {
   if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -556,9 +576,7 @@ export default function BulkPreviewModal({
         }
         const d = await res.json();
         if (res.ok) {
-          setMessage(
-            `Follow-up: ${d.sent} sent, ${d.skipped} skipped, ${d.errors?.length || 0} error(s)`
-          );
+          setMessage(formatBulkFollowupResultMessage(d));
           onComplete();
         } else {
           setMessage(d.error || 'Failed');

@@ -6,6 +6,7 @@ import {
   getCustomerGroups,
   getLineItemsForGroup,
   getThreadRootMessageIdForImport,
+  mergeResolvedRootMessageIdIntoChaseData,
   sumLineItemsTotalBalance,
 } from '@/lib/aging-service';
 import { generateFollowupEmailBody, EmailTemplateData, mapLineItemsToInvoiceRows } from '@/lib/aging-templates';
@@ -105,7 +106,10 @@ export async function POST(request: NextRequest) {
         });
 
         const o = getChaseOutreachForImport(chase ?? undefined, importId);
-        if (o.unanswered) {
+        const root = chase
+          ? getThreadRootMessageIdForImport(chase, importId)
+          : null;
+        if (o.unanswered && root) {
           groupsToFollowUp.push(group);
           break; // Only add group once
         }
@@ -148,7 +152,13 @@ export async function POST(request: NextRequest) {
       try {
         const lineItems = await getLineItemsForGroup(user.id, importId, group.lineItemIds);
         followupLineItems = lineItems;
-        if (lineItems.length === 0) continue;
+        if (lineItems.length === 0) {
+          results.skipped++;
+          results.errors.push(
+            `Skipped ${group.groupKey}: no line items for this group (re-upload or refresh the import if this persists).`
+          );
+          continue;
+        }
         if (sumLineItemsTotalBalance(lineItems) <= 0) {
           results.skipped++;
           continue;
@@ -178,10 +188,31 @@ export async function POST(request: NextRequest) {
         }
 
         if (!threadMessageId || !chase) {
+          const errLine = `Skipped ${group.groupKey}: no initial send in Microsoft 365 for this ageing file. Send the initial, then run follow-up again.`;
           results.skipped++;
-          results.errors.push(
-            `Skipped ${group.groupKey}: no initial send in Microsoft 365 for this ageing file. Send the initial, then run follow-up again.`
-          );
+          results.errors.push(errLine);
+          try {
+            const to = parseEmailAddresses(group.emailTo)
+              .filter(isPlausibleEmailAddress)
+              .join(', ');
+            await prisma.email.create({
+              data: {
+                to: to || '—',
+                subject: `Follow-up: ${group.customerName}`.trim(),
+                body: null,
+                htmlBody: null,
+                status: 'failed',
+                errorMessage: errLine,
+                emailConfigId: emailConfig.id,
+                userId: user.id,
+                agingInvoiceKey: null,
+                kind: 'aging_followup',
+                agingImportId: importId,
+              },
+            });
+          } catch (logErr) {
+            console.error('[Aging Bulk Followup] email log (no thread) failed:', logErr);
+          }
           continue;
         }
 
@@ -238,7 +269,7 @@ export async function POST(request: NextRequest) {
         // Send threaded reply
         let graphFollowupId: string;
         try {
-          graphFollowupId = await GraphMailService.replyToMessage(
+          const replyResult = await GraphMailService.replyToMessage(
             emailConfig,
             threadMessageId,
             {
@@ -248,13 +279,68 @@ export async function POST(request: NextRequest) {
               attachments: attachments.length > 0 ? attachments : undefined,
             },
           );
+          graphFollowupId = replyResult.replyDraftId;
+          if (replyResult.resolvedOriginalId) {
+            const m = replyResult.resolvedOriginalId;
+            for (const item of lineItems) {
+              if (!item.documentNo) continue;
+              const itemKey = `${item.companyCode}-${item.documentNo}`;
+              const existingCh = await prisma.invoiceChase.findUnique({
+                where: {
+                  userId_invoiceKey: { userId: user.id, invoiceKey: itemKey },
+                },
+              });
+              if (!existingCh) continue;
+              const merged = mergeResolvedRootMessageIdIntoChaseData(
+                existingCh.outreachRoundsJson,
+                importId,
+                m,
+                existingCh.lastImportId,
+              );
+              try {
+                await prisma.invoiceChase.update({
+                  where: {
+                    userId_invoiceKey: { userId: user.id, invoiceKey: itemKey },
+                  },
+                  data: {
+                    outreachRoundsJson: merged.outreachRoundsJson,
+                    ...(merged.sentMessageId != null
+                      ? { sentMessageId: merged.sentMessageId }
+                      : {}),
+                  },
+                });
+              } catch (mergeErr) {
+                console.error('[Aging Bulk Followup] failed to store resolved message id:', mergeErr);
+              }
+            }
+          }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (msg.includes('ErrorItemNotFound') || msg.includes('404')) {
             results.skipped++;
-            results.errors.push(
-              `${group.groupKey}: the original email is not in the mailbox (wrong upload or removed). Send a new initial for this file, then retry.`
-            );
+            const errLine = `${group.groupKey}: the original email is not in the mailbox (wrong upload or removed). Send a new initial for this file, then retry.`;
+            results.errors.push(errLine);
+            if (logTo && logSubject) {
+              try {
+                await prisma.email.create({
+                  data: {
+                    to: logTo,
+                    subject: logSubject,
+                    body: logHtml ? stripHtmlToPlain(logHtml) : null,
+                    htmlBody: logHtml,
+                    status: 'failed',
+                    errorMessage: `${errLine} (${msg})`,
+                    emailConfigId: emailConfig.id,
+                    userId: user.id,
+                    agingInvoiceKey: followupPrimaryKey,
+                    kind: 'aging_followup',
+                    agingImportId: importId,
+                  },
+                });
+              } catch (logErr) {
+                console.error('[Aging Bulk Followup] email log (Graph 404) failed:', logErr);
+              }
+            }
             continue;
           }
           throw e;

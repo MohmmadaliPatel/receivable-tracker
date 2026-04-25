@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         if (roundIdx >= 0) {
           outreachRounds[roundIdx] = {
             ...outreachRounds[roundIdx]!,
-            sentAt: outreachRounds[roundIdx]!.sentAt || roundEntry.sentAt,
+            sentAt: roundEntry.sentAt,
             sentMessageId: sentMessageId || outreachRounds[roundIdx]!.sentMessageId,
           };
         } else {
