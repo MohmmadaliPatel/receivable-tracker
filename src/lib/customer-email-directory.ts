@@ -445,6 +445,82 @@ export async function getEmailForCustomer(
 }
 
 /**
+ * In-memory index for the same resolution rules as {@link getEmailForCustomer} (avoids N queries per import line).
+ */
+export type CustomerEmailLookupIndex = {
+  byCode: Map<string, { emailTo: string; emailCc: string | null }>;
+  byName: Map<string, { emailTo: string; emailCc: string | null }>;
+};
+
+function normKey(s: string): string {
+  return s.toLowerCase().trim();
+}
+
+export async function buildCustomerEmailLookupIndex(userId: string): Promise<CustomerEmailLookupIndex> {
+  const entries = await prisma.customerEmailEntry.findMany({
+    where: { userId },
+    select: { keyType: true, keyValue: true, emailTo: true, emailCc: true },
+  });
+  const byCode = new Map<string, { emailTo: string; emailCc: string | null }>();
+  const byName = new Map<string, { emailTo: string; emailCc: string | null }>();
+  for (const e of entries) {
+    if (!e.emailTo?.trim()) {
+      continue;
+    }
+    const v = { emailTo: e.emailTo.trim(), emailCc: e.emailCc };
+    const k = normKey(e.keyValue);
+    if (e.keyType === 'customer_code') {
+      byCode.set(k, v);
+    } else {
+      byName.set(k, v);
+    }
+  }
+  return { byCode, byName };
+}
+
+/**
+ * Match {@link getEmailForCustomer} using a preloaded index.
+ */
+export function getEmailForCustomerFromIndex(
+  index: CustomerEmailLookupIndex,
+  customerCode: string,
+  customerName: string,
+  preference: 'name' | 'code' = 'name',
+): { emailTo: string; emailCc: string | null; source: string } | null {
+  if (preference === 'code') {
+    const byCode = index.byCode.get(normKey(customerCode));
+    if (byCode?.emailTo) {
+      return { emailTo: byCode.emailTo, emailCc: byCode.emailCc, source: 'customer_code' };
+    }
+  }
+  const byName = index.byName.get(normKey(customerName));
+  if (byName?.emailTo) {
+    return { emailTo: byName.emailTo, emailCc: byName.emailCc, source: 'customer_name' };
+  }
+  if (preference === 'name') {
+    const byCode2 = index.byCode.get(normKey(customerCode));
+    if (byCode2?.emailTo) {
+      return { emailTo: byCode2.emailTo, emailCc: byCode2.emailCc, source: 'customer_code' };
+    }
+  }
+  return null;
+}
+
+/**
+ * True when a send would have a To address: directory (same rules as bulk send) or sheet fallback.
+ */
+export function hasResolvableRecipientForAgingLine(
+  index: CustomerEmailLookupIndex,
+  line: { emailTo: string | null; customerCode: string; customerName: string },
+  preference: 'name' | 'code' = 'name',
+): boolean {
+  const dir = getEmailForCustomerFromIndex(index, line.customerCode, line.customerName, preference);
+  const directoryTo = dir?.emailTo?.trim();
+  const sheetTo = (line.emailTo || '').trim();
+  return Boolean(directoryTo || sheetTo);
+}
+
+/**
  * Build full CSV export for a key type. Name view: one key column. Code view: name + code (name from ageing data when available).
  */
 export async function buildCustomerEmailsExport(

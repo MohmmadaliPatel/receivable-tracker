@@ -73,12 +73,12 @@ export type SnapshotMetricsJson = {
     pctOutstandingOver90: number;
     top5CustomerConcentrationPct: number;
   };
-  /** Non-excluded file rows (same as open + zero-balance lines). */
+  /** Non-excluded import rows (line items in receivables). */
   totalLineCount: number;
   /** Distinct customer code values (AR sold-to) among non-excluded lines. */
   customerDistinctByCode: number;
-  /** Distinct (customerCode + customerName) pairs (name variants count separately). */
-  customerDistinctByCodeAndName: number;
+  /** Distinct customer name values among non-excluded lines (trimmed, non-empty). */
+  customerDistinctByName: number;
 };
 
 /**
@@ -199,15 +199,14 @@ export async function computeAndPersistSnapshotMetrics(
       .map((l) => String(l.customerCode ?? '').trim())
       .filter((c) => c.length > 0),
   );
-  const pairSet = new Set(
-    currentLines.map(
-      (l) =>
-        `${String(l.customerCode ?? '').trim()}\t${String(l.customerName ?? '').trim()}`,
-    ),
+  const nameSet = new Set(
+    currentLines
+      .map((l) => String(l.customerName ?? '').trim())
+      .filter((n) => n.length > 0),
   );
   const totalLineCount = currentLines.length;
   const customerDistinctByCode = byCode.size;
-  const customerDistinctByCodeAndName = pairSet.size;
+  const customerDistinctByName = nameSet.size;
 
   const metricsJson: SnapshotMetricsJson = {
     newInvoiceCount: onlyInCurrent.size,
@@ -226,7 +225,7 @@ export async function computeAndPersistSnapshotMetrics(
     },
     totalLineCount,
     customerDistinctByCode,
-    customerDistinctByCodeAndName,
+    customerDistinctByName,
   };
 
   await prisma.agingImport.update({

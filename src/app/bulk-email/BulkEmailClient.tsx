@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import AgingSendModal from '@/components/AgingSendModal';
 import AttachmentsModal from '@/components/AttachmentsModal';
 import BulkPreviewModal, { type GroupRowWithStatus } from '@/components/BulkPreviewModal';
-import { EmailAddressList } from '@/components/EmailAddressList';
+import { CompactEmailTableCell } from '@/components/EmailAddressList';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
 import type { Column } from '@/components/ui/DataTable';
 import type { GroupSortField } from '@/lib/aging-groups-list';
@@ -249,21 +249,14 @@ export default function BulkEmailClient() {
         filterable: true,
         rawValue: (g) => [g.emailTo || '', g.emailCc || ''].filter(Boolean).join(' '),
         accessor: (g) => (
-          <div className="text-sm min-w-0 max-w-[20rem]">
-            <EmailAddressList value={g.emailTo} label="To" className="mb-0.5" emptyLabel="—" />
-            <EmailAddressList
-              value={g.emailCc}
-              label="Cc"
-              variant="muted"
-              emptyLabel="—"
-              className="mt-0.5"
-            />
-            {g.emailConflict && (
-              <span className="block text-amber-700 text-xs mt-1">(emails differ)</span>
-            )}
-          </div>
+          <CompactEmailTableCell
+            emailTo={g.emailTo}
+            emailCc={g.emailCc}
+            maxVisible={2}
+            showConflict={g.emailConflict}
+          />
         ),
-        minWidth: '200px',
+        minWidth: '160px',
       },
       {
         key: 'totalEmailsCount',

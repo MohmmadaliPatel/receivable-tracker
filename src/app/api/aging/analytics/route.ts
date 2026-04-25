@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         hasImport: false,
         snapshotKpi: null,
+        latestImportReceivablesStats: null,
         invoiceCountLatest: 0,
         outstandingInvoices: 0,
         responseReceived: 0,
@@ -76,6 +77,39 @@ export async function GET(request: NextRequest) {
         }[],
       });
     }
+
+    const latestReceivablesWhere = {
+      importId: latestImport.id,
+      userId: user.id,
+      excluded: false as const,
+    };
+
+    const [lineCountNonExcluded, lineCountExcluded, distinctRowsForLatest] = await Promise.all([
+      prisma.agingLineItem.count({ where: latestReceivablesWhere }),
+      prisma.agingLineItem.count({
+        where: { importId: latestImport.id, userId: user.id, excluded: true },
+      }),
+      prisma.agingLineItem.findMany({
+        where: latestReceivablesWhere,
+        select: { customerCode: true, customerName: true },
+      }),
+    ]);
+
+    const latestImportReceivablesStats = {
+      lineCountNonExcluded,
+      lineCountExcluded,
+      customerDistinctByCode: new Set(
+        distinctRowsForLatest
+          .map((r) => String(r.customerCode ?? '').trim())
+          .filter((c) => c.length > 0),
+      ).size,
+      customerDistinctByName: new Set(
+        distinctRowsForLatest
+          .map((r) => String(r.customerName ?? '').trim())
+          .filter((n) => n.length > 0),
+      ).size,
+      storedRowCount: latestImport.storedRowCount ?? null,
+    };
 
     const lineWhere = {
       importId: latestImport.id,
@@ -426,6 +460,7 @@ export async function GET(request: NextRequest) {
       importName: latestImport.fileName,
       importAt: latestImport.createdAt,
       companyCodeFilter: companyCodeFilterRaw,
+      latestImportReceivablesStats,
       invoiceCountLatest,
       outstandingInvoices,
       responseReceived,

@@ -16,6 +16,7 @@ import {
   Settings,
   Users,
   LogOut,
+  BarChart2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -37,9 +38,11 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'Invoices', href: '/invoices', Icon: FileText },
     { name: 'Bulk Email', href: '/bulk-email', Icon: Mails },
     { name: 'Attachments', href: '/aging-attachments', Icon: Paperclip },
+    { name: 'Email reports', href: '/email-reports', Icon: BarChart2 },
     { name: 'Email Configuration', href: '/email-config', Icon: Cog },
-    { name: 'Settings', href: '/settings', Icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'User Management', href: '/users', Icon: Users }] : []),
+    { name: 'Settings', href: '/settings', Icon: Settings },
+
   ];
 
   const isActive = (href: string) => {

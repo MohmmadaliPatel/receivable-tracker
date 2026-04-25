@@ -55,6 +55,8 @@ type SnapshotMetricsShape = {
   customersDroppedCount?: number;
   totalLineCount?: number;
   customerDistinctByCode?: number;
+  customerDistinctByName?: number;
+  /** @deprecated old snapshots only; not shown in UI */
   customerDistinctByCodeAndName?: number;
   agingRisk?: {
     amountOver90Days?: number;
@@ -98,6 +100,13 @@ interface AgingStats {
   bucketBreakdown?: BucketRow[];
   chasedBreakdown?: { byEmails: ChasedByEmail[]; byBucket: ChasedByBucket[] };
   snapshotKpi?: SnapshotKpiApi;
+  latestImportReceivablesStats?: {
+    lineCountNonExcluded: number;
+    lineCountExcluded: number;
+    customerDistinctByCode: number;
+    customerDistinctByName: number;
+    storedRowCount: number | null;
+  } | null;
 }
 
 function formatInr(n: number): string {
@@ -260,6 +269,13 @@ export default function DashboardOverview() {
   const companyTableRows = (aging?.companyBreakdown || []).slice(0, 20);
 
   const m = (aging?.snapshotKpi?.latest?.metrics as SnapshotMetricsShape | null | undefined) || {};
+  const receiv = aging?.latestImportReceivablesStats;
+  const totalInvoicesInReceivables =
+    typeof m.totalLineCount === 'number' ? m.totalLineCount : receiv?.lineCountNonExcluded;
+  const distinctCustomersByCode =
+    typeof m.customerDistinctByCode === 'number' ? m.customerDistinctByCode : receiv?.customerDistinctByCode;
+  const distinctCustomersByName =
+    typeof m.customerDistinctByName === 'number' ? m.customerDistinctByName : receiv?.customerDistinctByName;
   const risk = m.agingRisk;
   const hasKpi = !!(
     aging?.snapshotKpi?.latest &&
@@ -328,7 +344,7 @@ export default function DashboardOverview() {
           </h2>
           <p className="text-xs text-slate-500 mt-0.5 mb-4">
             Compares the latest uploaded ageing report to the one before it. New / cleared = open
-            invoice lines with document no. (excluded lines omitted.)
+            invoice lines with document no. (excluded lines omitted).
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
             <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
@@ -340,38 +356,35 @@ export default function DashboardOverview() {
               </p>
             </div>
             <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-              <p className="text-xs text-slate-500">Total line items / Open (positive line amount)</p>
+              <p className="text-xs text-slate-500">Total invoices / Open (positive amount)</p>
               <p className="text-lg font-semibold text-slate-900">
-                {typeof m.totalLineCount === 'number'
-                  ? m.totalLineCount.toLocaleString()
+                {totalInvoicesInReceivables != null
+                  ? totalInvoicesInReceivables.toLocaleString()
                   : '—'}{' '}
                 <span className="text-slate-400 font-normal">/</span>{' '}
                 {aging.snapshotKpi.latest.openInvoiceCount != null
                   ? aging.snapshotKpi.latest.openInvoiceCount.toLocaleString()
                   : '—'}
               </p>
-              {typeof m.totalLineCount !== 'number' && aging.snapshotKpi.latest.storedRowCount != null && (
-                <p className="text-[11px] text-slate-400 mt-1.5">
-                  All rows in file: {aging.snapshotKpi.latest.storedRowCount.toLocaleString()}{' '}
-                  (includes excluded)
+              {receiv && receiv.storedRowCount != null && (
+                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                  Uploaded file: {receiv.storedRowCount.toLocaleString()} row(s) · In receivables:{' '}
+                  {receiv.lineCountNonExcluded.toLocaleString()} · Excluded:{' '}
+                  {receiv.lineCountExcluded.toLocaleString()}
                 </p>
               )}
             </div>
             <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-              <p className="text-xs text-slate-500">By customer code / code + name pair</p>
-              <p className="text-lg font-semibold text-slate-900">
-                {typeof m.customerDistinctByCode === 'number'
-                  ? m.customerDistinctByCode.toLocaleString()
+              <p className="text-xs text-slate-500">By customer code / By customer name</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wide">After excluded</p>
+              <p className="text-lg font-semibold text-slate-900 mt-1">
+                {distinctCustomersByCode != null
+                  ? distinctCustomersByCode.toLocaleString()
                   : '—'}{' '}
                 <span className="text-slate-400 font-normal">/</span>{' '}
-                {typeof m.customerDistinctByCodeAndName === 'number'
-                  ? m.customerDistinctByCodeAndName.toLocaleString()
-                  : aging.snapshotKpi.latest.customerCount != null
-                    ? aging.snapshotKpi.latest.customerCount.toLocaleString()
-                    : '—'}
-              </p>
-              <p className="text-[11px] text-slate-400 mt-1.5">
-                Code = distinct sold-to codes. Pair = same name variants separated.
+                {distinctCustomersByName != null
+                  ? distinctCustomersByName.toLocaleString()
+                  : '—'}
               </p>
             </div>
             <div className="rounded-lg bg-emerald-50/80 border border-emerald-100 p-3">

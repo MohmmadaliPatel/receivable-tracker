@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as path from 'path';
 
 interface AppSettings {
   id: string;
@@ -30,12 +29,21 @@ function FolderPathPreview({ basePath }: { basePath: string }) {
   );
 }
 
-export default function SettingsClient() {
+type SettingsClientProps = {
+  isAdmin?: boolean;
+};
+
+export default function SettingsClient({ isAdmin = false }: SettingsClientProps) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [clearVerify, setClearVerify] = useState('');
+  const [clearBusy, setClearBusy] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const [clearResult, setClearResult] = useState<string | null>(null);
 
   // Local edits
   const [autoReplyCheck, setAutoReplyCheck] = useState(true);
@@ -184,6 +192,31 @@ export default function SettingsClient() {
           </div>
         </div>
 
+        {isAdmin && (
+          <div className="bg-white rounded-2xl border border-red-200/80 p-6">
+            <h2 className="text-base font-semibold text-red-900">Clear database (dangerous)</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Permanently delete all application data: ageing imports, chases, emails log, forwarders, customer
+              email directory, confirmations, and settings. User accounts and active login sessions are not
+              removed.
+            </p>
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setClearModalOpen(true);
+                  setClearVerify('');
+                  setClearError(null);
+                  setClearResult(null);
+                }}
+                className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 border border-red-700 shadow-sm"
+              >
+                Clear all application data…
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Folder structure guide */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="text-base font-semibold text-gray-900">Folder Structure Guide</h2>
@@ -261,6 +294,106 @@ export default function SettingsClient() {
           </button>
         </div>
       </div>
+
+      {clearModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+          role="dialog"
+          aria-modal
+          aria-labelledby="clear-db-title"
+          onClick={(e) => e.target === e.currentTarget && !clearBusy && setClearModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="clear-db-title" className="text-lg font-semibold text-gray-900">
+              Clear all application data?
+            </h3>
+            <p className="text-sm text-gray-600 mt-2">
+              This will permanently remove data from <strong>all</strong> receivables, email tracking, customer
+              emails, confirmation letters, and related tables. <strong>User</strong> accounts and{' '}
+              <strong>login sessions</strong> are kept. This cannot be undone.
+            </p>
+            {clearError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-3">
+                {clearError}
+              </p>
+            )}
+            {clearResult && (
+              <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-3">
+                {clearResult}
+              </p>
+            )}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="clear-db-verify">
+                Type <span className="font-mono text-gray-900">DELETE</span> to confirm
+              </label>
+              <input
+                id="clear-db-verify"
+                type="text"
+                value={clearVerify}
+                onChange={(e) => setClearVerify(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                placeholder="DELETE"
+                autoComplete="off"
+                disabled={clearBusy}
+              />
+            </div>
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setClearModalOpen(false)}
+                disabled={clearBusy}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setClearError(null);
+                  setClearResult(null);
+                  setClearBusy(true);
+                  try {
+                    const res = await fetch('/api/settings/clear-all-data', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ confirm: 'DELETE' }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setClearError(data.error || 'Request failed');
+                      return;
+                    }
+                    setClearResult(data.message || 'Data cleared.');
+                    setClearVerify('');
+                    // Refresh app settings in UI (likely empty until next visit)
+                    const r = await fetch('/api/settings');
+                    const s = await r.json();
+                    if (s.settings) {
+                      setSettings(s.settings);
+                      setAutoReplyCheck(s.settings.autoReplyCheck);
+                      setInterval(s.settings.replyCheckIntervalMinutes);
+                      setBasePath(s.settings.emailSaveBasePath);
+                    } else {
+                      setSettings(null);
+                    }
+                  } catch (err) {
+                    setClearError(err instanceof Error ? err.message : 'Request failed');
+                  } finally {
+                    setClearBusy(false);
+                  }
+                }}
+                disabled={clearVerify !== 'DELETE' || clearBusy}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {clearBusy ? 'Clearing…' : 'Delete all data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

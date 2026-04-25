@@ -55,6 +55,7 @@ model EmailConfig {
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailTrackings  EmailTracking[]
+  sentEmails      Email[]
   isActive        Boolean  @default(true)
   cronEnabled     Boolean  @default(false) // Enable automatic fetching
   cronIntervalMinutes Int  @default(10) // Interval in minutes (e.g., 10 = every 10 minutes)
@@ -77,6 +78,7 @@ model Email {
   status      String   @default("sent") // sent, failed, pending
   errorMessage String?
   emailConfigId String?
+  emailConfig   EmailConfig? @relation(fields: [emailConfigId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -347,6 +349,9 @@ model InvoiceChase {
   outreachRoundsJson    String?
   lastImportId       String?
   emailConfigId      String?
+  /** Set manually or by future NDR sync when a post-delivery bounce is recorded */
+  bouncedAt          DateTime?
+  bounceDetail       String?
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lineItems          AgingLineItem[]
 
