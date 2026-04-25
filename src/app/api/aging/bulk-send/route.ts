@@ -109,8 +109,15 @@ export async function POST(request: NextRequest) {
       let logTo = '';
       let logSubject: string | null = null;
       let logHtml: string | null = null;
+      let failureLineItems: Awaited<ReturnType<typeof getLineItemsForGroup>> = [];
+      let failurePrimaryKey: string | null = null;
       try {
         const lineItems = await getLineItemsForGroup(user.id, importId, group.lineItemIds);
+        failureLineItems = lineItems;
+        const first = lineItems[0];
+        if (first?.documentNo) {
+          failurePrimaryKey = `${first.companyCode}-${first.documentNo}`;
+        }
         if (lineItems.length === 0) {
           results.skipped++;
           continue;
@@ -188,12 +195,16 @@ export async function POST(request: NextRequest) {
         logHtml = htmlBody;
 
         const sendResult = await GraphMailService.sendMail(emailConfig, {
-          to: toAddresses.length === 1 ? toAddresses[0] : toAddresses,
+          to: toAddresses.length === 1 ? toAddresses[0]! : toAddresses,
           subject,
           htmlBody,
           cc: mergedCc.length > 0 ? mergedCc : undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
         });
+
+        const primaryInvoiceKey = firstItem.documentNo
+          ? `${firstItem.companyCode}-${firstItem.documentNo}`
+          : null;
 
         await prisma.email.create({
           data: {
@@ -204,10 +215,13 @@ export async function POST(request: NextRequest) {
             status: 'sent',
             errorMessage: null,
             emailConfigId: emailConfig.id,
+            userId: user.id,
+            agingInvoiceKey: primaryInvoiceKey,
+            kind: 'aging_initial',
           },
         });
 
-        const sentMessageId = sendResult?.id || '';
+        const sentMessageId = sendResult.id || '';
         const now = new Date();
         const updates: Promise<unknown>[] = [];
 
@@ -259,6 +273,8 @@ export async function POST(request: NextRequest) {
                   outreachRoundsJson: JSON.stringify(outreachRounds),
                   lastImportId: importId,
                   status: 'outstanding',
+                  lastAgingSendFailedAt: null,
+                  lastAgingSendError: null,
                 },
               })
             );
@@ -281,8 +297,29 @@ export async function POST(request: NextRequest) {
                 status: 'failed',
                 errorMessage: msg,
                 emailConfigId: emailConfig.id,
+                userId: user.id,
+                agingInvoiceKey: failurePrimaryKey,
+                kind: 'aging_initial',
               },
             });
+            const failTime = new Date();
+            for (const item of failureLineItems) {
+              if (!item.documentNo) continue;
+              const ik = `${item.companyCode}-${item.documentNo}`;
+              try {
+                await prisma.invoiceChase.update({
+                  where: {
+                    userId_invoiceKey: { userId: user.id, invoiceKey: ik },
+                  },
+                  data: {
+                    lastAgingSendFailedAt: failTime,
+                    lastAgingSendError: msg,
+                  },
+                });
+              } catch {
+                // chase row may not exist yet
+              }
+            }
           } catch (logErr) {
             console.error('[Aging Bulk Send] Failed to log email row:', logErr);
           }

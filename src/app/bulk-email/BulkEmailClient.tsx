@@ -54,7 +54,6 @@ export default function BulkEmailClient() {
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [checkBusy, setCheckBusy] = useState(false);
 
   const [sendOpen, setSendOpen] = useState<{
     ids: string[];
@@ -166,20 +165,6 @@ export default function BulkEmailClient() {
   useEffect(() => {
     setPage(1);
   }, [importId]);
-
-  const onCheckReplies = async () => {
-    setCheckBusy(true);
-    try {
-      const res = await fetch('/api/aging/check-replies', { method: 'POST' });
-      const d = await res.json();
-      if (res.ok) {
-        setMessage(`Aging: ${d.repliesFound ?? 0} new repl(ies) matched`);
-        loadGroups();
-      }
-    } finally {
-      setCheckBusy(false);
-    }
-  };
 
   const onSortChange = (colKey: string) => {
     const k = colKey as GroupSortField;
@@ -368,14 +353,6 @@ export default function BulkEmailClient() {
           )}
 
           <div className="ml-auto flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onCheckReplies}
-              disabled={checkBusy}
-              className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50"
-            >
-              {checkBusy ? '…' : 'Check replies'}
-            </button>
             <button
               type="button"
               onClick={() => {

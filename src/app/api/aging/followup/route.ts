@@ -92,13 +92,30 @@ export async function POST(request: NextRequest) {
     );
     const attachments = await collectAgingSendAttachments(user.id, firstItem, importMap);
 
-    // Send threaded reply
-    await GraphMailService.replyToMessage(emailConfig, chase.sentMessageId, {
-      to: chase.emailTo || firstItem.emailTo,
-      htmlBody: followupBody,
-      cc: cc || chase.emailCc || undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
-    });
+    const subjData: EmailTemplateData = {
+      customerName: customerName || firstItem.customerName,
+      customerCode: customerCode || firstItem.customerCode,
+      companyName: firstItem.companyName,
+      invoices: mapLineItemsToInvoiceRows(lineItems),
+      totalAmount: lineItems
+        .reduce((sum, item) => {
+          const amount = item.totalBalance ? parseFloat(item.totalBalance.replace(/,/g, '')) : 0;
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0)
+        .toString(),
+    };
+    const followSubject = generateFollowupSubject(subjData);
+
+    const graphFollowupId = await GraphMailService.replyToMessage(
+      emailConfig,
+      chase.sentMessageId,
+      {
+        to: chase.emailTo || firstItem.emailTo,
+        htmlBody: followupBody,
+        cc: cc || chase.emailCc || undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      },
+    );
 
     // Update InvoiceChase records
     const now = new Date();
@@ -108,8 +125,12 @@ export async function POST(request: NextRequest) {
       if (item.documentNo) {
         const itemKey = `${item.companyCode}-${item.documentNo}`;
         
-        // Parse current followups
-        let followups: { sentAt: string; messageId?: string }[] = [];
+        let followups: {
+          sentAt: string;
+          subject?: string;
+          emailId?: string;
+          graphMessageId?: string;
+        }[] = [];
         const existingChase = await prisma.invoiceChase.findUnique({
           where: {
             userId_invoiceKey: {
@@ -129,6 +150,8 @@ export async function POST(request: NextRequest) {
 
         followups.push({
           sentAt: now.toISOString(),
+          subject: followSubject,
+          graphMessageId: graphFollowupId,
         });
 
         updates.push(
@@ -142,7 +165,10 @@ export async function POST(request: NextRequest) {
             data: {
               followupCount: { increment: 1 },
               lastFollowupAt: now,
+              followupMessageId: graphFollowupId,
               followupsJson: JSON.stringify(followups),
+              lastAgingSendFailedAt: null,
+              lastAgingSendError: null,
             },
           })
         );

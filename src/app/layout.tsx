@@ -15,9 +15,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Receivable Tracker",
   description: "Receivables and ageing email management",
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({

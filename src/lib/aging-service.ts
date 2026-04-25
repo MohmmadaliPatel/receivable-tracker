@@ -565,12 +565,14 @@ export async function getCustomerGroups(
           : c.sentAt
         : c?.lastFollowupAt ?? c?.sentAt ?? null;
     const lineHasResp = c?.lastResponseAt != null;
-    // Follow-up list: can reply in thread (sentMessageId) OR we already recorded a follow-up
-    // (followupCount) so the row still appears like the status badge, even if message id is missing.
+    // Unanswered: any outreach (initial or follow-up) with no customer reply. Prefer sentMessageId for threading;
+    // include emailCount so "bulk follow-up" list matches after first send when Graph id was missing (legacy data).
     const lineUnanswered =
       !!c &&
       c.lastResponseAt == null &&
-      (!!c.sentMessageId?.trim() || (c.followupCount ?? 0) > 0);
+      (!!c.sentMessageId?.trim() ||
+        (c.emailCount ?? 0) > 0 ||
+        (c.followupCount ?? 0) > 0);
 
     if (!groups.has(key)) {
       groups.set(key, {

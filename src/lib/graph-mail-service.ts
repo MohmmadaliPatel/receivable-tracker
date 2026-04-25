@@ -1,4 +1,3 @@
-import { Client } from '@microsoft/microsoft-graph-client';
 import { EmailConfig } from '@prisma/client';
 
 // Get access token using client credentials flow
@@ -34,18 +33,6 @@ async function getAccessToken(config: EmailConfig): Promise<string> {
   }
 }
 
-// Get Graph client with access token
-async function getGraphClient(config: EmailConfig): Promise<Client> {
-  const accessToken = await getAccessToken(config);
-
-  // The Graph SDK automatically adds "Bearer" prefix, so we just pass the token
-  return Client.init({
-    authProvider: (done) => {
-      done(null, accessToken);
-    },
-  });
-}
-
 export interface MailAttachment {
   name: string;
   contentBytes: string; // base64 encoded
@@ -63,30 +50,32 @@ export interface SendMailOptions {
   saveToSentItems?: boolean;
 }
 
+/** Graph sendMail does not return a message id; we create a draft, send it, and return the id. */
 export class GraphMailService {
-  // Send email using Microsoft Graph API
-  static async sendMail(config: EmailConfig, options: SendMailOptions): Promise<any> {
+  static async sendMail(
+    config: EmailConfig,
+    options: SendMailOptions,
+  ): Promise<{ id: string }> {
     try {
-      const client = await getGraphClient(config);
+      const accessToken = await GraphMailService.getAccessToken(config);
+      const userPrincipal = encodeURIComponent(config.fromEmail);
 
-      // Prepare recipients
       const toRecipients = Array.isArray(options.to)
         ? options.to.map((email) => ({ emailAddress: { address: email } }))
         : [{ emailAddress: { address: options.to } }];
 
       const ccRecipients = options.cc
-        ? Array.isArray(options.cc)
-          ? options.cc.map((email) => ({ emailAddress: { address: email } }))
-          : [{ emailAddress: { address: options.cc } }]
+        ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((email) => ({
+            emailAddress: { address: email },
+          }))
         : undefined;
 
       const bccRecipients = options.bcc
-        ? Array.isArray(options.bcc)
-          ? options.bcc.map((email) => ({ emailAddress: { address: email } }))
-          : [{ emailAddress: { address: options.bcc } }]
+        ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]).map((email) => ({
+            emailAddress: { address: email },
+          }))
         : undefined;
 
-      // Prepare file attachments for Graph API
       const graphAttachments = options.attachments?.map((a) => ({
         '@odata.type': '#microsoft.graph.fileAttachment',
         name: a.name,
@@ -94,8 +83,7 @@ export class GraphMailService {
         contentBytes: a.contentBytes,
       }));
 
-      // Prepare message
-      const message: any = {
+      const message: Record<string, unknown> = {
         subject: options.subject,
         body: {
           contentType: options.htmlBody ? 'HTML' : 'Text',
@@ -107,17 +95,41 @@ export class GraphMailService {
         ...(graphAttachments?.length && { attachments: graphAttachments }),
       };
 
-      const payload: any = {
-        message,
-        saveToSentItems: options.saveToSentItems !== false, // default true
-      };
+      const createRes = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(message),
+        },
+      );
+      if (!createRes.ok) {
+        const err = await createRes.text();
+        throw new Error(`Create message failed (${createRes.status}): ${err}`);
+      }
+      const created = (await createRes.json()) as { id?: string };
+      const messageId = created.id;
+      if (!messageId) {
+        throw new Error('Graph create message returned no id');
+      }
 
-      // Use the fromEmail as the sender (user must have permission to send as this address)
-      const sendMailUrl = `/users/${config.fromEmail}/sendMail`;
-
-      const result = await client.api(sendMailUrl).post(payload);
-
-      return result;
+      const sendRes = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${encodeURIComponent(
+          messageId,
+        )}/send`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (!sendRes.ok) {
+        const err = await sendRes.text();
+        throw new Error(`Send message failed (${sendRes.status}): ${err}`);
+      }
+      return { id: messageId };
     } catch (error) {
       console.error('Error sending email via Graph API:', error);
       throw error;
@@ -148,8 +160,8 @@ export class GraphMailService {
   static async replyToMessage(
     config: EmailConfig,
     originalMessageId: string,
-    options: Omit<SendMailOptions, 'subject'>
-  ): Promise<void> {
+    options: Omit<SendMailOptions, 'subject'>,
+  ): Promise<string> {
     const accessToken = await GraphMailService.getAccessToken(config);
     const userPrincipal = encodeURIComponent(config.fromEmail);
 
@@ -226,6 +238,7 @@ export class GraphMailService {
       const err = await sendRes.text();
       throw new Error(`Send draft failed (${sendRes.status}): ${err}`);
     }
+    return draftId;
   }
 
   /** Raw RFC 822 MIME for the message (save as .eml). Requires Mail.Read on the mailbox. */

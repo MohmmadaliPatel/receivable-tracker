@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import InvoiceEmailTimelineModal from '@/components/InvoiceEmailTimelineModal';
 
 type Tab = 'sends' | 'confirmations';
 
@@ -24,6 +25,8 @@ type SendRow = {
   errorMessage: string | null;
   sentAt: string;
   emailConfig: { name: string; fromEmail: string } | null;
+  agingInvoiceKey?: string | null;
+  kind?: string | null;
 };
 
 type ConfRow = {
@@ -114,6 +117,7 @@ export default function EmailReportsClient() {
   const [confDateTo, setConfDateTo] = useState('');
   const [confDateOn, setConfDateOn] = useState<'created' | 'sent'>('created');
   const [confCategories, setConfCategories] = useState<string[]>([]);
+  const [timelineInvoiceKey, setTimelineInvoiceKey] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -379,13 +383,17 @@ export default function EmailReportsClient() {
                     <th className="px-3 py-2.5 font-medium">Error</th>
                     <th className="px-3 py-2.5 font-medium">Sending account</th>
                     <th className="px-3 py-2.5 font-medium">Sent</th>
+                    <th className="px-3 py-2.5 font-medium">Trail</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sendRows.map((r) => (
                     <tr key={r.id} className="border-t border-gray-100">
                       <td className="px-3 py-2.5 text-xs break-all max-w-xs text-gray-800">{r.to}</td>
-                      <td className="px-3 py-2.5 text-gray-800">{r.subject || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-800">
+                        {r.subject || '—'}
+                        {r.kind && <span className="block text-gray-500 text-[10px]">({r.kind})</span>}
+                      </td>
                       <td className="px-3 py-2.5">
                         <span
                           className={
@@ -411,6 +419,19 @@ export default function EmailReportsClient() {
                       </td>
                       <td className="px-3 py-2.5 text-xs text-gray-700 whitespace-nowrap">
                         {new Date(r.sentAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs">
+                        {r.agingInvoiceKey ? (
+                          <button
+                            type="button"
+                            onClick={() => setTimelineInvoiceKey(r.agingInvoiceKey!)}
+                            className="text-slate-800 hover:underline"
+                          >
+                            View
+                          </button>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -610,6 +631,12 @@ export default function EmailReportsClient() {
             )}
           </div>
         </div>
+      )}
+      {timelineInvoiceKey && (
+        <InvoiceEmailTimelineModal
+          invoiceKey={timelineInvoiceKey}
+          onClose={() => setTimelineInvoiceKey(null)}
+        />
       )}
     </div>
   );

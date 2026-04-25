@@ -4,6 +4,7 @@ import { SenderService } from './sender-service';
 import { EmailTrackingService } from './email-tracking-service';
 import { GraphMailService } from './graph-mail-service';
 import { checkRepliesForConfirmations, getOrCreateSettings } from './confirmation-service';
+import { runAgingCheckRepliesWithConfig } from './aging-check-replies';
 
 interface CronJob {
   intervalId: NodeJS.Timeout | null;
@@ -168,6 +169,21 @@ class CronService {
         }
       } catch (error) {
         console.error(`❌ [Cron] Error checking confirmation replies:`, error);
+      }
+
+      // Ageing: match customer replies to invoice chase threads (same config mailbox)
+      try {
+        const { checked, repliesFound } = await runAgingCheckRepliesWithConfig(
+          config.userId,
+          config
+        );
+        if (checked > 0) {
+          console.log(
+            `🔍 [Cron] Ageing reply check: ${checked} chases, ${repliesFound} new repl(ies)`
+          );
+        }
+      } catch (error) {
+        console.error(`❌ [Cron] Error checking ageing replies:`, error);
       }
 
       console.log(`✅ [Cron] Completed job for config ${configId}`);

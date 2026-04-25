@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
     ? new Date(toD.getFullYear(), toD.getMonth(), toD.getDate(), 23, 59, 59, 999)
     : null;
 
-  const andClauses: Prisma.EmailWhereInput[] = [{ emailConfig: { userId: user.id } }];
+  const andClauses: Prisma.EmailWhereInput[] = [
+    {
+      OR: [{ emailConfig: { userId: user.id } }, { userId: user.id }],
+    },
+  ];
   if (status) {
     andClauses.push({ status });
   }

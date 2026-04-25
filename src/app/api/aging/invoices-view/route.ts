@@ -21,6 +21,14 @@ function emailsForChase(c: InvoiceChase | null): number {
   return (c.emailCount || 0) + (c.followupCount || 0);
 }
 
+function displayChaseStatus(c: InvoiceChase | null): string {
+  if (!c) return '—';
+  if (c.lastResponseAt) return 'responded';
+  if (c.lastAgingSendFailedAt) return 'send_failed';
+  if (c.bouncedAt) return 'bounced';
+  return c.status;
+}
+
 function lastSentIso(c: InvoiceChase | null): string | null {
   if (!c) return null;
   const t = [c.sentAt, c.lastFollowupAt].filter(Boolean) as Date[];
@@ -228,7 +236,7 @@ export async function GET(request: NextRequest) {
         amount: lineAmountForAgingLineItem(item.maxDaysBucket, item.totalBalance),
         emailsSent: emailsForChase(c),
         lastSentAt: lastSentIso(c),
-        status: c?.status ?? '—',
+        status: displayChaseStatus(c),
         hasResponse: c != null && c.lastResponseAt != null,
       };
     };

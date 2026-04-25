@@ -103,15 +103,14 @@ export async function POST(request: NextRequest) {
 
     // Send email via Graph API
     const sendResult = await GraphMailService.sendMail(emailConfig, {
-      to: toAddresses.length === 1 ? toAddresses[0] : toAddresses,
+      to: toAddresses.length === 1 ? toAddresses[0]! : toAddresses,
       subject,
       htmlBody,
       cc: mergedCc.length > 0 ? mergedCc : undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
 
-    // Get the message ID from response
-    const sentMessageId = sendResult?.id || '';
+    const sentMessageId = sendResult.id || '';
 
     // Update InvoiceChase records
     const now = new Date();
@@ -169,6 +168,8 @@ export async function POST(request: NextRequest) {
               outreachRoundsJson: JSON.stringify(outreachRounds),
               lastImportId: importId,
               status: 'outstanding',
+              lastAgingSendFailedAt: null,
+              lastAgingSendError: null,
             },
           })
         );

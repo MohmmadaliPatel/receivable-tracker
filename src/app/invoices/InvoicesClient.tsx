@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getBucketSortDaysFromMaxDaysField } from '@/lib/aging-bucket-utils';
 import CustomerLineItemsModal from '@/components/CustomerLineItemsModal';
+import InvoiceEmailTimelineModal from '@/components/InvoiceEmailTimelineModal';
 import { ServerDataTable, type SortDir } from '@/components/ui/ServerDataTable';
 import type { Column } from '@/components/ui/DataTable';
 
@@ -130,6 +131,7 @@ export default function InvoicesClient() {
     customerCode: string;
     customerName: string;
   } | null>(null);
+  const [timelineInvoiceKey, setTimelineInvoiceKey] = useState<string | null>(null);
 
   const q = useMemo(
     () =>
@@ -371,12 +373,21 @@ export default function InvoicesClient() {
         filterable: true,
         rawValue: (r) => r.status,
         accessor: (r) => (
-          <span className="text-gray-800">
-            {r.status}
-            {r.hasResponse && <span className="ml-1.5 text-emerald-600 text-xs">(reply)</span>}
-          </span>
+          <div className="flex flex-col gap-0.5 items-start">
+            <span className="text-gray-800">
+              {r.status}
+              {r.hasResponse && <span className="ml-1.5 text-emerald-600 text-xs">(reply)</span>}
+            </span>
+            <button
+              type="button"
+              onClick={() => setTimelineInvoiceKey(r.invoiceKey)}
+              className="text-xs text-slate-700 hover:underline font-medium"
+            >
+              Email details
+            </button>
+          </div>
         ),
-        minWidth: '100px',
+        minWidth: '120px',
       },
     ],
     [],
@@ -638,6 +649,13 @@ export default function InvoicesClient() {
         customerCode={lineItemsModal?.customerCode ?? ''}
         customerName={lineItemsModal?.customerName ?? ''}
       />
+
+      {timelineInvoiceKey && (
+        <InvoiceEmailTimelineModal
+          invoiceKey={timelineInvoiceKey}
+          onClose={() => setTimelineInvoiceKey(null)}
+        />
+      )}
     </div>
   );
 }

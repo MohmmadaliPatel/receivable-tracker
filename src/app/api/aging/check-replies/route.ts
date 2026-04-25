@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { EmailFetchService } from '@/lib/email-fetch-service';
+import { runAgingCheckRepliesWithConfig } from '@/lib/aging-check-replies';
 import { getCurrentUser } from '@/lib/simple-auth';
 
 export async function POST() {
@@ -10,7 +10,6 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get email config
     const emailConfig = await prisma.emailConfig.findFirst({
       where: { userId: user.id, isActive: true },
     });
@@ -22,16 +21,9 @@ export async function POST() {
       );
     }
 
-    // Get all outstanding chases with sent messages but no response
-    const chases = await prisma.invoiceChase.findMany({
-      where: {
-        userId: user.id,
-        sentMessageId: { not: null },
-        lastResponseAt: null,
-      },
-    });
+    const { checked, repliesFound } = await runAgingCheckRepliesWithConfig(user.id, emailConfig);
 
-    if (chases.length === 0) {
+    if (checked === 0) {
       return NextResponse.json({
         checked: 0,
         repliesFound: 0,
@@ -39,77 +31,8 @@ export async function POST() {
       });
     }
 
-    let repliesFound = 0;
-
-    for (const chase of chases) {
-      if (!chase.sentMessageId) continue;
-
-      try {
-        // Get replies to the original message
-        const replies = await EmailFetchService.getRepliesToMessage(
-          emailConfig,
-          chase.sentMessageId,
-        );
-
-        if (replies && replies.length > 0) {
-          // Get the most recent reply
-          const latestReply = replies[0];
-
-          // Parse existing responses
-          let responses: unknown[] = [];
-          if (chase.responsesJson) {
-            try {
-              responses = JSON.parse(chase.responsesJson);
-            } catch {
-              responses = [];
-            }
-          }
-
-          // Check if we already recorded this reply
-          const alreadyRecorded = responses.some(
-            (r: any) => r.messageId === latestReply.id
-          );
-
-          if (!alreadyRecorded) {
-            // Add to responses array
-            responses.push({
-              messageId: latestReply.id,
-              receivedAt: latestReply.receivedDateTime || new Date().toISOString(),
-              subject: latestReply.subject,
-              fromEmail: latestReply.from?.emailAddress?.address,
-              fromName: latestReply.from?.emailAddress?.name,
-              bodyPreview: latestReply.bodyPreview,
-            });
-
-            // Update chase with response
-            await prisma.invoiceChase.update({
-              where: {
-                userId_invoiceKey: {
-                  userId: user.id,
-                  invoiceKey: chase.invoiceKey,
-                },
-              },
-              data: {
-                lastResponseAt: new Date(latestReply.receivedDateTime || Date.now()),
-                responseMessageId: latestReply.id,
-                responseSubject: latestReply.subject,
-                responsePreview: latestReply.bodyPreview,
-                responsesJson: JSON.stringify(responses),
-                status: 'responded',
-              },
-            });
-
-            repliesFound++;
-          }
-        }
-      } catch (error) {
-        console.warn(`[Check Replies] Error checking chase ${chase.invoiceKey}:`, error);
-        // Continue with other chases
-      }
-    }
-
     return NextResponse.json({
-      checked: chases.length,
+      checked,
       repliesFound,
     });
   } catch (error) {

@@ -40,6 +40,7 @@ model User {
   agingImportCustomerAttachments  AgingImportCustomerAttachment[]
   customerEmailEntries  CustomerEmailEntry[]
   excludedCustomers     ExcludedCustomer[]
+  graphEmails            Email[]
 
   @@map("users")
 }
@@ -79,9 +80,16 @@ model Email {
   errorMessage String?
   emailConfigId String?
   emailConfig   EmailConfig? @relation(fields: [emailConfigId], references: [id], onDelete: SetNull)
+  userId         String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /** e.g. companyCode-documentNo for ageing sends */
+  agingInvoiceKey String?
+  kind            String?   // aging_initial | aging_followup | other
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([userId, agingInvoiceKey])
+  @@index([userId, sentAt])
   @@map("emails")
 }
 
@@ -352,6 +360,8 @@ model InvoiceChase {
   /** Set manually or by future NDR sync when a post-delivery bounce is recorded */
   bouncedAt          DateTime?
   bounceDetail       String?
+  lastAgingSendFailedAt DateTime?
+  lastAgingSendError  String?
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lineItems          AgingLineItem[]
 

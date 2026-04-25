@@ -101,7 +101,9 @@ export async function POST(request: NextRequest) {
         if (
           chase &&
           chase.lastResponseAt == null &&
-          (!!chase.sentMessageId?.trim() || (chase.followupCount ?? 0) > 0)
+          (!!chase.sentMessageId?.trim() ||
+            (chase.emailCount ?? 0) > 0 ||
+            (chase.followupCount ?? 0) > 0)
         ) {
           groupsToFollowUp.push(group);
           break; // Only add group once
@@ -133,13 +135,18 @@ export async function POST(request: NextRequest) {
       toFollowUp = groupsToFollowUp.filter((gr) => allow.has(gr.groupKey));
     }
 
+    const notInFollowupPool = groups.length - toFollowUp.length;
+
     // Send follow-ups
     for (const group of toFollowUp) {
       let logTo = '';
       let logSubject: string | null = null;
       let logHtml: string | null = null;
+      let followupLineItems: Awaited<ReturnType<typeof getLineItemsForGroup>> = [];
+      let followupPrimaryKey: string | null = null;
       try {
         const lineItems = await getLineItemsForGroup(user.id, importId, group.lineItemIds);
+        followupLineItems = lineItems;
         if (lineItems.length === 0) continue;
         if (sumLineItemsTotalBalance(lineItems) <= 0) {
           results.skipped++;
@@ -218,16 +225,23 @@ export async function POST(request: NextRequest) {
         logTo = toList.join(', ');
         logSubject = logSubjectVal;
         logHtml = followupBody;
+        if (firstItem.documentNo) {
+          followupPrimaryKey = `${firstItem.companyCode}-${firstItem.documentNo}`;
+        }
 
         // Send threaded reply
-        await GraphMailService.replyToMessage(emailConfig, chase.sentMessageId, {
-          to: toArg,
-          htmlBody: followupBody,
-          cc: mergedCc.length > 0 ? (mergedCc.length === 1 ? mergedCc[0]! : mergedCc) : undefined,
-          attachments: attachments.length > 0 ? attachments : undefined,
-        });
+        const graphFollowupId = await GraphMailService.replyToMessage(
+          emailConfig,
+          chase.sentMessageId!,
+          {
+            to: toArg,
+            htmlBody: followupBody,
+            cc: mergedCc.length > 0 ? (mergedCc.length === 1 ? mergedCc[0]! : mergedCc) : undefined,
+            attachments: attachments.length > 0 ? attachments : undefined,
+          },
+        );
 
-        await prisma.email.create({
+        const emailRow = await prisma.email.create({
           data: {
             to: logTo,
             subject: logSubject,
@@ -236,6 +250,9 @@ export async function POST(request: NextRequest) {
             status: 'sent',
             errorMessage: null,
             emailConfigId: emailConfig.id,
+            userId: user.id,
+            agingInvoiceKey: followupPrimaryKey,
+            kind: 'aging_followup',
           },
         });
 
@@ -256,7 +273,12 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          let followups: { sentAt: string }[] = [];
+          let followups: {
+            sentAt: string;
+            subject?: string;
+            emailId?: string;
+            graphMessageId?: string;
+          }[] = [];
           if (existingChase?.followupsJson) {
             try {
               followups = JSON.parse(existingChase.followupsJson);
@@ -265,7 +287,12 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          followups.push({ sentAt: now.toISOString() });
+          followups.push({
+            sentAt: now.toISOString(),
+            subject: logSubjectVal,
+            emailId: emailRow.id,
+            graphMessageId: graphFollowupId,
+          });
 
           await prisma.invoiceChase.update({
             where: {
@@ -277,7 +304,10 @@ export async function POST(request: NextRequest) {
             data: {
               followupCount: { increment: 1 },
               lastFollowupAt: now,
+              followupMessageId: graphFollowupId,
               followupsJson: JSON.stringify(followups),
+              lastAgingSendFailedAt: null,
+              lastAgingSendError: null,
             },
           });
         }
@@ -297,8 +327,29 @@ export async function POST(request: NextRequest) {
                 status: 'failed',
                 errorMessage: msg,
                 emailConfigId: emailConfig.id,
+                userId: user.id,
+                agingInvoiceKey: followupPrimaryKey,
+                kind: 'aging_followup',
               },
             });
+            const failTime = new Date();
+            for (const item of followupLineItems) {
+              if (!item.documentNo) continue;
+              const ik = `${item.companyCode}-${item.documentNo}`;
+              try {
+                await prisma.invoiceChase.update({
+                  where: {
+                    userId_invoiceKey: { userId: user.id, invoiceKey: ik },
+                  },
+                  data: {
+                    lastAgingSendFailedAt: failTime,
+                    lastAgingSendError: msg,
+                  },
+                });
+              } catch {
+                // no chase
+              }
+            }
           } catch (logErr) {
             console.error('[Aging Bulk Followup] Failed to log email row:', logErr);
           }
@@ -306,10 +357,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Groups not in this run: not follow-up–eligible, or not selected
-    results.skipped = groups.length - toFollowUp.length;
-
-    return NextResponse.json(results);
+    return NextResponse.json({ ...results, notInFollowupPool });
   } catch (error) {
     console.error('[Aging Bulk Followup] Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to process bulk follow-up';

@@ -31,6 +31,14 @@ function lastSentIso(c: InvoiceChase | null): string | null {
   return d.toISOString();
 }
 
+function displayChaseStatus(c: InvoiceChase | null): string {
+  if (!c) return '—';
+  if (c.lastResponseAt) return 'responded';
+  if (c.lastAgingSendFailedAt) return 'send_failed';
+  if (c.bouncedAt) return 'bounced';
+  return c.status;
+}
+
 export type ReceivablesEmailReportRow = {
   invoiceKey: string;
   documentNo: string;
@@ -144,7 +152,7 @@ function toRow(item: LineWithChase, emailIndex: CustomerEmailLookupIndex): Recei
     amount: lineAmountForAgingLineItem(item.maxDaysBucket, item.totalBalance),
     emailsSent: emailsForChase(c),
     lastSentAt: lastSentIso(c),
-    status: c?.status ?? '—',
+    status: displayChaseStatus(c),
     hasResponse: c != null && c.lastResponseAt != null,
     missingEmail: !resolvable,
     sheetEmailTo: item.emailTo || '',
