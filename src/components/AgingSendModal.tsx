@@ -122,6 +122,7 @@ export default function AgingSendModal({
 
       const data = await res.json();
       setRecipientEmail(data.recipientEmail);
+      setSending(false);
       onComplete();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send');

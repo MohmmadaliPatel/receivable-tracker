@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GraphMailService } from '@/lib/graph-mail-service';
-import { getLineItemsForGroup } from '@/lib/aging-service';
+import { getLineItemsForGroup, getThreadRootMessageIdForImport } from '@/lib/aging-service';
 import {
   generateFollowupEmailBody,
   generateFollowupSubject,
@@ -10,6 +10,7 @@ import {
 } from '@/lib/aging-templates';
 import { getCurrentUser } from '@/lib/simple-auth';
 import { collectAgingSendAttachments } from '@/lib/aging-import-attachments';
+import { isPlausibleEmailAddress, parseEmailAddresses } from '@/lib/email-parser';
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,9 +62,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!chase?.sentMessageId) {
+    const threadRootId = getThreadRootMessageIdForImport(chase, importId);
+    if (!threadRootId || !chase) {
       return NextResponse.json(
-        { error: 'No original email found to reply to. Please send an initial email first.' },
+        {
+          error:
+            'No Microsoft 365 message for this ageing file to reply to. Send the initial chaser for this same report, then try the follow-up again.',
+        },
         { status: 400 }
       );
     }
@@ -106,16 +111,40 @@ export async function POST(request: NextRequest) {
     };
     const followSubject = generateFollowupSubject(subjData);
 
-    const graphFollowupId = await GraphMailService.replyToMessage(
-      emailConfig,
-      chase.sentMessageId,
-      {
-        to: chase.emailTo || firstItem.emailTo,
-        htmlBody: followupBody,
-        cc: cc || chase.emailCc || undefined,
-        attachments: attachments.length > 0 ? attachments : undefined,
-      },
-    );
+    const toRaw = parseEmailAddresses(chase.emailTo || firstItem.emailTo).filter(isPlausibleEmailAddress);
+    if (toRaw.length === 0) {
+      return NextResponse.json(
+        { error: 'No valid To address. Fix the email in the directory or the sheet, then try again.' },
+        { status: 400 }
+      );
+    }
+    const toForGraph = toRaw.length === 1 ? toRaw[0]! : toRaw;
+
+    let graphFollowupId: string;
+    try {
+      graphFollowupId = await GraphMailService.replyToMessage(
+        emailConfig,
+        threadRootId,
+        {
+          to: toForGraph,
+          htmlBody: followupBody,
+          cc: cc || chase.emailCc || undefined,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('ErrorItemNotFound') || msg.includes('404')) {
+        return NextResponse.json(
+          {
+            error:
+              'The original outgoing email is no longer in the mailbox, or it belongs to a different upload. Send a new initial for this ageing file, then follow up again.',
+          },
+          { status: 409 }
+        );
+      }
+      throw e;
+    }
 
     // Update InvoiceChase records
     const now = new Date();

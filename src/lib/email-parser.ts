@@ -54,3 +54,12 @@ export function splitStoredEmails(stored: string | null | undefined): string[] {
     .map((e) => e.trim().toLowerCase())
     .filter((e) => e.length > 0 && e.includes('@'));
 }
+
+/** Rejects obvious non-addresses (typos) before calling Graph. Not a full RFC parser. */
+const PLAUSIBLE_EMAIL = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/i;
+
+export function isPlausibleEmailAddress(addr: string): boolean {
+  const s = String(addr).trim();
+  if (!s || s.length > 254) return false;
+  return PLAUSIBLE_EMAIL.test(s);
+}

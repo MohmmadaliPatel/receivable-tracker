@@ -548,6 +548,42 @@ export function getChaseOutreachForImport(
   return { initialCount, followupCount, total, lastSentAt, unanswered };
 }
 
+export type OutreachRoundEntry = { importId: string; sentAt: string; sentMessageId?: string };
+
+/**
+ * Graph `createReply` must target the **initial send for this ageing import** (same conversation).
+ * The global `sentMessageId` on chase may point at a different import's message after a new
+ * file is sent, which yields ErrorItemNotFound. Prefer `sentMessageId` stored on the round for `importId`.
+ */
+export function getThreadRootMessageIdForImport(
+  chase:
+    | {
+        sentMessageId: string | null;
+        lastImportId: string | null;
+        outreachRoundsJson: string | null;
+      }
+    | null
+    | undefined,
+  importId: string
+): string | null {
+  if (!chase) return null;
+  if (chase.outreachRoundsJson) {
+    try {
+      const rounds = JSON.parse(chase.outreachRoundsJson) as OutreachRoundEntry[];
+      const r = rounds.find((x) => x?.importId === importId);
+      if (r?.sentMessageId?.trim()) {
+        return r.sentMessageId.trim();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (chase.lastImportId === importId && chase.sentMessageId?.trim()) {
+    return chase.sentMessageId.trim();
+  }
+  return null;
+}
+
 /**
  * Get customer groups for a specific import.
  */

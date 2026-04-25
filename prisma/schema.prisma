@@ -357,7 +357,7 @@ model InvoiceChase {
   responseSubject    String?
   responsePreview    String?
   responsesJson         String?
-  /** JSON: [{ "importId", "sentAt" }] one entry per import when a campaign (non-followup) send ran */
+  /** JSON: [{ "importId", "sentAt", "sentMessageId"? }] — Graph id for the initial send, for threaded follow-up */
   outreachRoundsJson    String?
   lastImportId       String?
   emailConfigId      String?

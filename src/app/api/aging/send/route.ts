@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GraphMailService } from '@/lib/graph-mail-service';
-import { getLineItemsForGroup } from '@/lib/aging-service';
+import { getLineItemsForGroup, type OutreachRoundEntry } from '@/lib/aging-service';
 import { getEmailForCustomer } from '@/lib/customer-email-directory';
-import { splitStoredEmails } from '@/lib/email-parser';
+import { isPlausibleEmailAddress, splitStoredEmails } from '@/lib/email-parser';
 import { getCurrentUser } from '@/lib/simple-auth';
 import { collectAgingSendAttachments } from '@/lib/aging-import-attachments';
 import { stripHtmlToPlain } from '@/lib/aging-bulk-form';
@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse multiple TO addresses
-    const toAddresses = splitStoredEmails(recipientEmail);
+    const toAddresses = splitStoredEmails(recipientEmail).filter(isPlausibleEmailAddress);
     if (toAddresses.length === 0) {
       return NextResponse.json(
-        { error: 'No valid email address found for this customer.' },
+        { error: 'No valid email address found for this customer. Check the address format (e.g. name@domain.com).' },
         { status: 400 }
       );
     }
@@ -111,7 +111,16 @@ export async function POST(request: NextRequest) {
       attachments: attachments.length > 0 ? attachments : undefined,
     });
 
-    const sentMessageId = sendResult.id || '';
+    const sentMessageId = (sendResult.id || '').trim();
+    if (!sentMessageId) {
+      return NextResponse.json(
+        {
+          error:
+            'Microsoft Graph did not return a message id. The message may not be in the mailbox; nothing was saved.',
+        },
+        { status: 502 }
+      );
+    }
 
     // Update InvoiceChase records
     const now = new Date();
@@ -132,23 +141,29 @@ export async function POST(request: NextRequest) {
         });
 
         // Parse current outreach rounds
-        let outreachRounds: { importId: string; sentAt: string }[] = [];
+        let outreachRounds: OutreachRoundEntry[] = [];
         if (existingChase?.outreachRoundsJson) {
           try {
-            outreachRounds = JSON.parse(existingChase.outreachRoundsJson);
+            outreachRounds = JSON.parse(existingChase.outreachRoundsJson) as OutreachRoundEntry[];
           } catch {
             outreachRounds = [];
           }
         }
 
-        // Check if we've already recorded a send for this import
-        const existingRound = outreachRounds.find(r => r.importId === importId);
-        
-        if (!existingRound) {
-          outreachRounds.push({
-            importId,
-            sentAt: now.toISOString(),
-          });
+        const roundIdx = outreachRounds.findIndex((r) => r.importId === importId);
+        const roundEntry: OutreachRoundEntry = {
+          importId,
+          sentAt: now.toISOString(),
+          sentMessageId,
+        };
+        if (roundIdx >= 0) {
+          outreachRounds[roundIdx] = {
+            ...outreachRounds[roundIdx]!,
+            sentAt: outreachRounds[roundIdx]!.sentAt || roundEntry.sentAt,
+            sentMessageId: sentMessageId || outreachRounds[roundIdx]!.sentMessageId,
+          };
+        } else {
+          outreachRounds.push(roundEntry);
         }
 
         updates.push(

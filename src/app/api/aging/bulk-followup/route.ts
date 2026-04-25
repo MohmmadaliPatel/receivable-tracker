@@ -5,6 +5,7 @@ import {
   getChaseOutreachForImport,
   getCustomerGroups,
   getLineItemsForGroup,
+  getThreadRootMessageIdForImport,
   sumLineItemsTotalBalance,
 } from '@/lib/aging-service';
 import { generateFollowupEmailBody, EmailTemplateData, mapLineItemsToInvoiceRows } from '@/lib/aging-templates';
@@ -15,7 +16,7 @@ import {
   type ResolvedMailAttachment,
 } from '@/lib/aging-import-attachments';
 import { localPdfsFromFormData, stripHtmlToPlain } from '@/lib/aging-bulk-form';
-import { parseEmailAddresses } from '@/lib/email-parser';
+import { isPlausibleEmailAddress, parseEmailAddresses } from '@/lib/email-parser';
 
 type FollowupBody = {
   importId?: string;
@@ -154,8 +155,9 @@ export async function POST(request: NextRequest) {
         }
 
         const firstItem = lineItems[0];
-        /** Prefer any line that has a Graph message id (thread root for reply), not only the first row. */
+        /** Thread root must be the initial send for this `importId` (stored on the outreach round). */
         let chase: Awaited<ReturnType<typeof prisma.invoiceChase.findUnique>> = null;
+        let threadMessageId: string | null = null;
         for (const item of lineItems) {
           if (!item.documentNo) continue;
           const ik = `${item.companyCode}-${item.documentNo}`;
@@ -167,16 +169,18 @@ export async function POST(request: NextRequest) {
               },
             },
           });
-          if (ch?.sentMessageId?.trim()) {
+          const root = ch ? getThreadRootMessageIdForImport(ch, importId) : null;
+          if (root) {
             chase = ch;
+            threadMessageId = root;
             break;
           }
         }
 
-        if (!chase?.sentMessageId?.trim()) {
+        if (!threadMessageId || !chase) {
           results.skipped++;
           results.errors.push(
-            `Skipped ${group.groupKey}: no Graph message id for a threaded reply (use a line that has the initial send, or re-send).`
+            `Skipped ${group.groupKey}: no initial send in Microsoft 365 for this ageing file. Send the initial, then run follow-up again.`
           );
           continue;
         }
@@ -206,12 +210,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Prefer directory-merged group addresses (same as getCustomerGroups / first send), then chase, then line
-        let toList = parseEmailAddresses(group.emailTo);
-        if (toList.length === 0) toList = parseEmailAddresses(chase?.emailTo ?? null);
-        if (toList.length === 0) toList = parseEmailAddresses(firstItem.emailTo ?? null);
+        let toList = parseEmailAddresses(group.emailTo).filter(isPlausibleEmailAddress);
+        if (toList.length === 0) toList = parseEmailAddresses(chase?.emailTo ?? null).filter(isPlausibleEmailAddress);
+        if (toList.length === 0) toList = parseEmailAddresses(firstItem.emailTo ?? null).filter(isPlausibleEmailAddress);
         if (toList.length === 0) {
           results.skipped++;
-          results.errors.push(`Skipped follow-up for ${group.groupKey}: no To address.`);
+          results.errors.push(
+            `Skipped follow-up for ${group.groupKey}: no valid To address in directory or sheet.`,
+          );
           continue;
         }
         const toArg: string | string[] = toList.length === 1 ? toList[0]! : toList;
@@ -230,16 +236,29 @@ export async function POST(request: NextRequest) {
         }
 
         // Send threaded reply
-        const graphFollowupId = await GraphMailService.replyToMessage(
-          emailConfig,
-          chase.sentMessageId!,
-          {
-            to: toArg,
-            htmlBody: followupBody,
-            cc: mergedCc.length > 0 ? (mergedCc.length === 1 ? mergedCc[0]! : mergedCc) : undefined,
-            attachments: attachments.length > 0 ? attachments : undefined,
-          },
-        );
+        let graphFollowupId: string;
+        try {
+          graphFollowupId = await GraphMailService.replyToMessage(
+            emailConfig,
+            threadMessageId,
+            {
+              to: toArg,
+              htmlBody: followupBody,
+              cc: mergedCc.length > 0 ? (mergedCc.length === 1 ? mergedCc[0]! : mergedCc) : undefined,
+              attachments: attachments.length > 0 ? attachments : undefined,
+            },
+          );
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.includes('ErrorItemNotFound') || msg.includes('404')) {
+            results.skipped++;
+            results.errors.push(
+              `${group.groupKey}: the original email is not in the mailbox (wrong upload or removed). Send a new initial for this file, then retry.`
+            );
+            continue;
+          }
+          throw e;
+        }
 
         const emailRow = await prisma.email.create({
           data: {

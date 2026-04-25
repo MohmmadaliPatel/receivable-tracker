@@ -116,10 +116,9 @@ export class GraphMailService {
         throw new Error('Graph create message returned no id');
       }
 
+      const idSeg = GraphMailService.messageIdPathSegment(messageId);
       const sendRes = await fetch(
-        `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${encodeURIComponent(
-          messageId,
-        )}/send`,
+        `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${idSeg}/send`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -155,6 +154,11 @@ export class GraphMailService {
     return data.access_token;
   }
 
+  /** URL-segment safe Graph message id (ids may include +, /, =). */
+  private static messageIdPathSegment(id: string): string {
+    return encodeURIComponent(id.trim());
+  }
+
   // Send a threaded reply to an existing message.
   // Uses Graph's createReply + PATCH + send flow so the follow-up appears in the same thread.
   static async replyToMessage(
@@ -162,12 +166,17 @@ export class GraphMailService {
     originalMessageId: string,
     options: Omit<SendMailOptions, 'subject'>,
   ): Promise<string> {
+    const mid = originalMessageId.trim();
+    if (!mid) {
+      throw new Error('Cannot reply: missing message id for the initial send. Send the initial again for this ageing file.');
+    }
     const accessToken = await GraphMailService.getAccessToken(config);
     const userPrincipal = encodeURIComponent(config.fromEmail);
+    const idSeg = GraphMailService.messageIdPathSegment(mid);
 
     // Step 1 – create a reply draft (copies To/Subject/conversationId from the original)
     const createRes = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${originalMessageId}/createReply`,
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${idSeg}/createReply`,
       {
         method: 'POST',
         headers: {
@@ -210,8 +219,9 @@ export class GraphMailService {
       ...(graphAttachments?.length && { attachments: graphAttachments }),
     };
 
+    const draftSeg = GraphMailService.messageIdPathSegment(draftId);
     const patchRes = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftId}`,
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftSeg}`,
       {
         method: 'PATCH',
         headers: {
@@ -228,7 +238,7 @@ export class GraphMailService {
 
     // Step 3 – send the draft
     const sendRes = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftId}/send`,
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${draftSeg}/send`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` },

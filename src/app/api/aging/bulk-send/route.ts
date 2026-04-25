@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GraphMailService } from '@/lib/graph-mail-service';
-import { getCustomerGroups, getLineItemsForGroup, sumLineItemsTotalBalance } from '@/lib/aging-service';
+import {
+  getCustomerGroups,
+  getLineItemsForGroup,
+  type OutreachRoundEntry,
+  sumLineItemsTotalBalance,
+} from '@/lib/aging-service';
 import { getEmailForCustomer } from '@/lib/customer-email-directory';
-import { splitStoredEmails } from '@/lib/email-parser';
+import { isPlausibleEmailAddress, splitStoredEmails } from '@/lib/email-parser';
 import { getCurrentUser } from '@/lib/simple-auth';
 import {
   collectAgingSendAttachments,
@@ -176,10 +181,12 @@ export async function POST(request: NextRequest) {
           attachments = mergeAgingSendAttachmentsWithLocalPdfs(attachments, lineItems, local);
         }
 
-        const toAddresses = splitStoredEmails(recipientEmail);
+        const toAddresses = splitStoredEmails(recipientEmail).filter(isPlausibleEmailAddress);
         if (toAddresses.length === 0) {
           results.skipped++;
-          results.errors.push(`Skipped ${group.groupKey}: no valid email addresses.`);
+          results.errors.push(
+            `Skipped ${group.groupKey}: no valid To address. Check the customer email (directory or sheet).`,
+          );
           continue;
         }
         const ccAddresses: string[] = [];
@@ -202,6 +209,13 @@ export async function POST(request: NextRequest) {
           attachments: attachments.length > 0 ? attachments : undefined,
         });
 
+        const sentMessageId = (sendResult.id || '').trim();
+        if (!sentMessageId) {
+          throw new Error(
+            'Microsoft Graph did not return a message id. The email may not have been stored; do not mark as sent.',
+          );
+        }
+
         const primaryInvoiceKey = firstItem.documentNo
           ? `${firstItem.companyCode}-${firstItem.documentNo}`
           : null;
@@ -222,7 +236,6 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const sentMessageId = sendResult.id || '';
         const now = new Date();
         const updates: Promise<unknown>[] = [];
 
@@ -239,21 +252,29 @@ export async function POST(request: NextRequest) {
               },
             });
 
-            let outreachRounds: { importId: string; sentAt: string }[] = [];
+            let outreachRounds: OutreachRoundEntry[] = [];
             if (existingChase?.outreachRoundsJson) {
               try {
-                outreachRounds = JSON.parse(existingChase.outreachRoundsJson);
+                outreachRounds = JSON.parse(existingChase.outreachRoundsJson) as OutreachRoundEntry[];
               } catch {
                 outreachRounds = [];
               }
             }
 
-            const existingRound = outreachRounds.find((r) => r.importId === importId);
-            if (!existingRound) {
-              outreachRounds.push({
-                importId,
-                sentAt: now.toISOString(),
-              });
+            const roundIdx = outreachRounds.findIndex((r) => r.importId === importId);
+            const roundEntry: OutreachRoundEntry = {
+              importId,
+              sentAt: now.toISOString(),
+              sentMessageId,
+            };
+            if (roundIdx >= 0) {
+              outreachRounds[roundIdx] = {
+                ...outreachRounds[roundIdx],
+                sentAt: outreachRounds[roundIdx]!.sentAt || roundEntry.sentAt,
+                sentMessageId: sentMessageId || outreachRounds[roundIdx]!.sentMessageId,
+              };
+            } else {
+              outreachRounds.push(roundEntry);
             }
 
             updates.push(
